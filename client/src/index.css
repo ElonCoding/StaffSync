@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  --color-evergreen-primary: #173D32;
+  --color-evergreen-deep: #102820;
+  --color-ivory-warm: #EAE9DF;
+  --color-bg-page: #F7F8F5;
+  --color-soft-stone: #D7D8CE;
+  --color-border-subtle: #E6EBE5;
+  --color-body-dark: #34443A;
+  --color-muted-sage: #7E8980;
+  --color-champagne: #D8C29A;
+  --color-accent-lime: #C7F36B;
+}
+
+:root {
+  --primary-evergreen: #173D32;
+  --deep-evergreen: #102820;
+  --warm-ivory: #EAE9DF;
+  --page-bg: #F7F8F5;
+  --soft-stone: #D7D8CE;
+  --subtle-border: #E6EBE5;
+  --body-text: #34443A;
+  --muted-sage: #7E8980;
+  --champagne: #D8C29A;
+  --accent-lime: #C7F36B;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--body-text);
+  background-color: var(--page-bg);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.font-serif-display {
+  font-family: 'DM Serif Display', Georgia, serif;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D7D8CE;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7E8980;
+}
