@@ -10,21 +10,11 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Brand Logo & Wordmark */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-[#173D32] flex items-center justify-center text-[#EAE9DF] shadow-md group-hover:scale-105 transition-transform">
-            <svg
-              className="w-5 h-5 text-[#C7F36B]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M8 12a4 4 0 0 1 8 0" />
-              <path d="M12 8v8" />
-            </svg>
-          </div>
+          <img
+            src="/image copy.svg"
+            alt="StaffSync Logo"
+            className="w-10 h-10 rounded-xl object-contain shadow-md group-hover:scale-105 transition-transform"
+          />
           <div className="flex flex-col">
             <span className="font-serif-display text-2xl font-bold tracking-tight text-[#102820]">
               StaffSync

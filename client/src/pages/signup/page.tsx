@@ -88,19 +88,11 @@ export default function SignupPage() {
       {/* Top Header Link */}
       <div className="max-w-md w-full mx-auto flex items-center justify-between mb-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#173D32] flex items-center justify-center text-[#EAE9DF]">
-            <svg
-              className="w-4 h-4 text-[#C7F36B]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M8 12a4 4 0 0 1 8 0" />
-              <path d="M12 8v8" />
-            </svg>
-          </div>
+          <img
+            src="/image copy.svg"
+            alt="StaffSync Logo"
+            className="w-8 h-8 rounded-lg object-contain shadow-xs"
+          />
           <span className="font-serif-display text-xl font-bold text-[#102820]">StaffSync</span>
         </Link>
         <Link
