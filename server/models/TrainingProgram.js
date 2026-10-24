@@ -1,83 +1,21 @@
 import mongoose from 'mongoose';
 
-const assignmentSchema = new mongoose.Schema(
+const trainingSchema = new mongoose.Schema(
   {
-    employeeId: {
-      type: String,
-      required: true,
-    },
-    employeeName: {
-      type: String,
-      required: true,
-    },
-    department: {
-      type: String,
-      default: '',
-    },
-    progressPercent: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 100,
-    },
-    completed: {
-      type: Boolean,
-      default: false,
-    },
-    completedAt: {
-      type: String,
-      default: '',
-    },
+    title: { type: String, required: [true, 'Training title is required'] },
+    description: { type: String, required: [true, 'Description is required'] },
+    date: { type: Date, required: [true, 'Training date is required'] },
+    trainer: { type: String, default: 'TBD' },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    assignedTo: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
-  { _id: false }
+  { timestamps: true }
 );
 
-const trainingProgramSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      required: true,
-    },
-    instructor: {
-      type: String,
-      required: true,
-    },
-    department: {
-      type: String,
-      required: true,
-    },
-    durationHours: {
-      type: Number,
-      default: 10,
-    },
-    modulesCount: {
-      type: Number,
-      default: 5,
-    },
-    startDate: {
-      type: String,
-      required: true,
-    },
-    endDate: {
-      type: String,
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ['Active', 'Upcoming', 'Completed'],
-      default: 'Active',
-    },
-    assignedEmployees: [assignmentSchema],
-  },
-  {
-    timestamps: true,
-  }
-);
-
-export const TrainingProgram = mongoose.model('TrainingProgram', trainingProgramSchema);
-export default TrainingProgram;
+export const Training = mongoose.model('Training', trainingSchema);
+export default Training;
