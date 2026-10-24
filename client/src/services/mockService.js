@@ -63,7 +63,28 @@ export const MockService = {
     if (typeof userOrRole === 'string') {
       resolvedUser = INITIAL_DEMO_USERS[userOrRole] || INITIAL_DEMO_USERS.hr;
     } else {
-      resolvedUser = userOrRole;
+      const u = userOrRole;
+      const initials = (u.name || 'User')
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="32" fill="#173D32"/><text x="50%" y="54%" font-family="system-ui, sans-serif" font-weight="700" font-size="46" fill="#C7F36B" dominant-baseline="middle" text-anchor="middle">${initials}</text></svg>`;
+      const defaultAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+      resolvedUser = {
+        id: u.id || u._id || `usr-${Date.now()}`,
+        employeeId: u.employeeId || 'STF-' + Math.floor(1000 + Math.random() * 9000),
+        name: u.name || 'Staff Member',
+        email: u.email || 'user@staffsync.io',
+        role: (u.role || 'employee').toLowerCase(),
+        avatar: u.avatar || defaultAvatar,
+        designation: u.designation || (u.role === 'HR' ? 'Head of People Operations' : u.role === 'Manager' ? 'Team Lead' : 'Staff Engineer'),
+        department: u.department || 'Operations',
+        phone: u.phone || '+1 (555) 010-2030',
+        location: u.location || 'Remote, Global',
+      };
     }
     memCurrentUser = resolvedUser;
     setStored(KEY_CURRENT_USER, resolvedUser);

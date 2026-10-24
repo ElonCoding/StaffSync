@@ -23,12 +23,29 @@ export default function EmployeeProfilePage() {
   const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
-    const emp = MockService.getEmployeeById('emp-03');
-    if (emp) {
-      setEmployee(emp);
-      setPhone(emp.phone);
-      setLocation(emp.location);
+    const cur = MockService.getCurrentUser();
+    let emp = MockService.getEmployeeById(cur.id) || MockService.getEmployeeById(cur.employeeId);
+    if (!emp) {
+      emp = {
+        id: cur.id,
+        employeeId: cur.employeeId || 'STF-1008',
+        name: cur.name,
+        email: cur.email,
+        phone: cur.phone || '+1 (555) 010-2030',
+        role: cur.role,
+        department: cur.department,
+        designation: cur.designation,
+        joiningDate: new Date().toISOString().split('T')[0],
+        status: 'Active',
+        managerName: 'Direct Leadership',
+        location: cur.location || 'Remote, Global',
+        avatar: cur.avatar,
+        leaveBalances: { annual: 16, sick: 10, casual: 5, totalRemaining: 31 },
+      };
     }
+    setEmployee(emp);
+    setPhone(emp.phone || '');
+    setLocation(emp.location || '');
   }, []);
 
   const handleSave = (e: React.FormEvent) => {

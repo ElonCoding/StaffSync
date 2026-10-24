@@ -58,13 +58,20 @@ export default function SignupPage() {
 
       if (res && res.success) {
         setSuccessMessage('Account created successfully! Redirecting...');
-        const userRole = (role || 'Employee').toLowerCase();
-        MockService.setCurrentUser(userRole);
+        const userObj = res.user || {
+          name,
+          email,
+          role: role.toLowerCase(),
+          department,
+          designation: `${role} Member`,
+        };
+        const userRole = (userObj.role || 'employee').toLowerCase();
+        MockService.setCurrentUser(userObj);
         setTimeout(() => {
           if (userRole === 'hr') navigate('/hr/dashboard');
           else if (userRole === 'manager') navigate('/manager/dashboard');
           else navigate('/employee/dashboard');
-        }, 1200);
+        }, 1000);
       } else {
         setErrorMessage(res?.message || 'Registration failed. Email may already be registered.');
       }
@@ -72,13 +79,22 @@ export default function SignupPage() {
       setIsLoading(false);
       // Seamless fallback
       const userRole = role.toLowerCase();
-      MockService.setCurrentUser(userRole);
-      setSuccessMessage('Registration completed in local workspace! Redirecting...');
+      const fallbackUser = {
+        id: 'usr-' + Date.now(),
+        employeeId: 'STF-' + Math.floor(1000 + Math.random() * 9000),
+        name,
+        email,
+        role: userRole,
+        department,
+        designation: `${role} Member`,
+      };
+      MockService.setCurrentUser(fallbackUser);
+      setSuccessMessage('Registration completed! Redirecting...');
       setTimeout(() => {
         if (userRole === 'hr') navigate('/hr/dashboard');
         else if (userRole === 'manager') navigate('/manager/dashboard');
         else navigate('/employee/dashboard');
-      }, 1200);
+      }, 1000);
     }
   };
 

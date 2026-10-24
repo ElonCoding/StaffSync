@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Announcement } from '../../../lib/types';
 import CreateAnnouncementModal from '../../../components/modals/CreateAnnouncementModal';
 
@@ -21,7 +22,17 @@ export default function HrAnnouncementsPage() {
   const [filterPriority, setFilterPriority] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadData = () => {
+  const loadData = async () => {
+    try {
+      const res = await ApiClient.getAnnouncements();
+      const serverAnc = res.data || res.announcements;
+      if (Array.isArray(serverAnc) && serverAnc.length > 0) {
+        setAnnouncements(serverAnc);
+        return;
+      }
+    } catch {
+      // fallback
+    }
     setAnnouncements(MockService.getAnnouncements());
   };
 
@@ -31,8 +42,13 @@ export default function HrAnnouncementsPage() {
     return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Delete this announcement?')) {
+      try {
+        await ApiClient.deleteAnnouncement(id);
+      } catch (err) {
+        console.warn('Delete fallback:', err);
+      }
       MockService.deleteAnnouncement(id);
       loadData();
     }

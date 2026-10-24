@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, CheckCircle2, Clock3 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { AttendanceRecord } from '../../../lib/types';
 
 export default function EmployeeAttendancePage() {
@@ -10,9 +11,24 @@ export default function EmployeeAttendancePage() {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
-  const loadData = () => {
-    const all = MockService.getAttendance();
-    const myRecords = all.filter((a) => a.employeeId === 'emp-03');
+  const loadData = async () => {
+    const cur = MockService.getCurrentUser();
+    let all: any[] = [];
+    try {
+      const res = await ApiClient.getAttendance();
+      const serverAtt = res.data || res.attendance;
+      if (Array.isArray(serverAtt) && serverAtt.length > 0) {
+        all = serverAtt;
+      } else {
+        all = MockService.getAttendance();
+      }
+    } catch {
+      all = MockService.getAttendance();
+    }
+
+    const myRecords = all.filter(
+      (a) => a.employeeId === cur.id || a.employeeId === cur.employeeId || a.employeeName === cur.name
+    );
     setAttendance(myRecords);
 
     const today = new Date().toISOString().split('T')[0];
@@ -30,13 +46,31 @@ export default function EmployeeAttendancePage() {
     return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
-  const handleToggleClock = () => {
+  const handleToggleClock = async () => {
+    const cur = MockService.getCurrentUser();
+    const empId = cur.employeeId || cur.id || 'STF-1008';
     if (!isClockedIn) {
-      MockService.clockIn('emp-03', 'Elena Rostova', 'Product & Design');
+      try {
+        await ApiClient.clockIn({
+          employeeId: empId,
+          employeeName: cur.name,
+          department: cur.department,
+        });
+      } catch (err) {
+        console.warn('Clock in fallback:', err);
+      }
+      MockService.clockIn(empId, cur.name, cur.department);
       setIsClockedIn(true);
       setFeedbackMsg('Clocked in for today. Have a wonderful workday!');
     } else {
-      MockService.clockOut('emp-03');
+      try {
+        await ApiClient.clockOut({
+          employeeId: empId,
+        });
+      } catch (err) {
+        console.warn('Clock out fallback:', err);
+      }
+      MockService.clockOut(empId);
       setIsClockedIn(false);
       setFeedbackMsg('Clocked out. Enjoy your evening!');
     }

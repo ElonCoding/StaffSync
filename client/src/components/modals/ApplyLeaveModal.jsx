@@ -1,43 +1,59 @@
 import React, { useState } from 'react';
 import { X, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { MockService } from '../../services/mockService.js';
+import { ApiClient } from '../../services/apiClient.js';
 import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
 export default function ApplyLeaveModal({
   isOpen,
   onClose,
   onSuccess,
-  employeeId = 'emp-03',
-  employeeName = 'Elena Rostova',
+  employeeId,
+  employeeName,
 }) {
   const [leaveType, setLeaveType] = useState('Annual');
-  const [startDate, setStartDate] = useState('2026-11-15');
-  const [endDate, setEndDate] = useState('2026-11-18');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]);
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
+
+  const currentUser = MockService.getCurrentUser() || {};
+  const effectiveEmpId = employeeId || currentUser.employeeId || currentUser.id || 'STF-1008';
+  const effectiveEmpName = employeeName || currentUser.name || 'Staff Member';
+  const effectiveDept = currentUser.department || 'General';
 
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.max(0, end.getTime() - start.getTime());
   const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!reason.trim()) return;
 
-    const newReq = MockService.applyLeave({
-      employeeId,
-      employeeName,
-      employeeAvatar: getInitialsAvatar(employeeName, '#173D32', '#C7F36B'),
-      department: 'Product & Design',
+    setIsSubmitting(true);
+    const payload = {
+      employeeId: effectiveEmpId,
+      employeeName: effectiveEmpName,
+      employeeAvatar: currentUser.avatar || getInitialsAvatar(effectiveEmpName, '#173D32', '#C7F36B'),
+      department: effectiveDept,
       leaveType,
       startDate,
       endDate,
       days: calculatedDays,
-      reason,
-    });
+      reason: reason.trim(),
+    };
 
+    try {
+      await ApiClient.applyLeave(payload);
+    } catch (err) {
+      console.warn('API leave application fallback:', err);
+    }
+
+    const newReq = MockService.applyLeave(payload);
+    setIsSubmitting(false);
     onSuccess(newReq);
     onClose();
   };

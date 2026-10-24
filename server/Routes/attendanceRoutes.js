@@ -11,7 +11,10 @@ const router = Router();
 
 router.get('/', verifyToken, getAttendance);
 router.post('/check-in', verifyToken, clockIn);
+router.post('/clock-in', verifyToken, clockIn);
 router.post('/check-out', verifyToken, clockOut);
-router.patch('/:id/status', verifyToken, authorizeRoles('hr'), updateStatus);
+router.post('/clock-out', verifyToken, clockOut);
+router.patch('/:id/status', verifyToken, authorizeRoles('hr', 'manager'), updateStatus);
+router.put('/:id/status', verifyToken, authorizeRoles('hr', 'manager'), updateStatus);
 
 export default router;

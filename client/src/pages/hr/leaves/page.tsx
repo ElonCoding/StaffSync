@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { LeaveRequest, LeaveStatus } from '../../../lib/types';
 import LeaveDecisionModal from '../../../components/modals/LeaveDecisionModal';
 
@@ -23,7 +24,17 @@ export default function HrLeavesPage() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
 
-  const loadData = () => {
+  const loadData = async () => {
+    try {
+      const res = await ApiClient.getLeaves();
+      const serverLeaves = res.data || res.leaves;
+      if (Array.isArray(serverLeaves) && serverLeaves.length > 0) {
+        setLeaves(serverLeaves);
+        return;
+      }
+    } catch {
+      // fallback
+    }
     setLeaves(MockService.getLeaveRequests());
   };
 
@@ -38,7 +49,12 @@ export default function HrLeavesPage() {
     setIsDecisionModalOpen(true);
   };
 
-  const handleQuickApprove = (req: LeaveRequest) => {
+  const handleQuickApprove = async (req: LeaveRequest) => {
+    try {
+      await ApiClient.updateLeaveStatus((req as any)._id || req.id, 'Approved');
+    } catch (err) {
+      console.warn('Quick approve API fallback:', err);
+    }
     MockService.reviewLeave(req.id, 'Approved', 'Sarah Jenkins (HR)');
     loadData();
   };

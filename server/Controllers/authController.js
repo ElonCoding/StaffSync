@@ -40,7 +40,7 @@ export async function login(req, res) {
         employeeId: userRecord.employeeId,
         name: userRecord.name,
         email: userRecord.email,
-        role: userRecord.role,
+        role: (userRecord.role || 'employee').toLowerCase(),
         department: userRecord.department,
         designation: userRecord.designation,
         avatar: userRecord.avatar,
@@ -146,7 +146,14 @@ export async function register(req, res) {
       });
     }
 
-    const assignedRole = role === 'HR' || role === 'Manager' ? role : 'Employee';
+    const rawRole = (role || 'employee').toLowerCase();
+    const assignedRole = rawRole.includes('hr') || rawRole.includes('admin')
+      ? 'hr'
+      : rawRole.includes('man') || rawRole.includes('lead')
+      ? 'manager'
+      : 'employee';
+    const employeeId = `STF-${Math.floor(1000 + Math.random() * 9000)}`;
+    const designation = `${assignedRole === 'hr' ? 'People Operations Specialist' : assignedRole === 'manager' ? 'Team Lead' : 'Software Engineer'}`;
 
     if (isDbConnected) {
       try {
@@ -156,16 +163,39 @@ export async function register(req, res) {
           password,
           role: assignedRole,
           department: department || 'General',
+          employeeId,
+          designation,
         });
 
         await newUser.save();
 
+        // Also create matching Employee doc in MongoDB Atlas
+        try {
+          const { Employee } = await import('../models/Employee.js');
+          await Employee.create({
+            user: newUser._id,
+            name: newUser.name,
+            email: newUser.email,
+            employeeId,
+            department: newUser.department,
+            designation,
+            position: designation,
+            role: assignedRole.toLowerCase(),
+            status: 'Active',
+            joiningDate: new Date().toISOString().split('T')[0],
+          });
+        } catch (empErr) {
+          console.warn('[Register] Employee profile save note:', empErr.message);
+        }
+
         const payload = {
           id: newUser._id.toString(),
+          employeeId: newUser.employeeId,
           name: newUser.name,
           email: newUser.email,
-          role: newUser.role,
+          role: newUser.role.toLowerCase(),
           department: newUser.department,
+          designation: newUser.designation,
         };
 
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });

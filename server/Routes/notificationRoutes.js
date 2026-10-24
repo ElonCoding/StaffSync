@@ -10,6 +10,8 @@ const router = Router();
 
 router.get('/', verifyToken, getNotifications);
 router.patch('/:id/read', verifyToken, markAsRead);
+router.put('/:id/read', verifyToken, markAsRead);
 router.patch('/read-all', verifyToken, markAllAsRead);
+router.put('/read-all', verifyToken, markAllAsRead);
 
 export default router;

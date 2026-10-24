@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { X, UserPlus, CheckCircle2 } from 'lucide-react';
 import { Employee, EmploymentStatus } from '../../lib/types';
 import { MockService } from '../../lib/mockService';
+import { ApiClient } from '../../services/apiClient.js';
+import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -19,34 +21,44 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
   const [status, setStatus] = useState<EmploymentStatus>('Active');
   const [managerName, setManagerName] = useState('Marcus Vance');
   const [location, setLocation] = useState('San Francisco, CA');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !designation.trim()) return;
 
-    const newEmp = MockService.addEmployee({
-      name,
-      email,
-      phone: phone || '+1 (555) 000-1122',
-      role: 'employee',
+    setIsSubmitting(true);
+    const payload = {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim() || '+1 (555) 000-1122',
+      role: 'employee' as const,
       department,
-      designation,
+      designation: designation.trim(),
       joiningDate: new Date().toISOString().split('T')[0],
       status,
       managerId: 'emp-02',
       managerName,
       location,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: getInitialsAvatar(name.trim(), '#173D32', '#C7F36B'),
       leaveBalances: {
         annual: 15,
         sick: 10,
         casual: 5,
         totalRemaining: 30,
       },
-    });
+    };
 
+    try {
+      await ApiClient.createEmployee(payload);
+    } catch (err) {
+      console.warn('API create employee fallback:', err);
+    }
+
+    const newEmp = MockService.addEmployee(payload);
+    setIsSubmitting(false);
     onSuccess(newEmp);
     onClose();
   };

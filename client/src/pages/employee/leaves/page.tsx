@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { LeaveRequest, Employee } from '../../../lib/types';
 import ApplyLeaveModal from '../../../components/modals/ApplyLeaveModal';
 
@@ -18,12 +19,51 @@ export default function EmployeeLeavesPage() {
   const [myLeaves, setMyLeaves] = useState<LeaveRequest[]>([]);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
 
-  const loadData = () => {
-    const emp = MockService.getEmployeeById('emp-03');
-    if (emp) setEmployee(emp);
+  const loadData = async () => {
+    const cur = MockService.getCurrentUser();
+    let emp = MockService.getEmployeeById(cur.id) || MockService.getEmployeeById(cur.employeeId);
+    if (!emp) {
+      emp = {
+        id: cur.id,
+        employeeId: cur.employeeId || 'STF-1008',
+        name: cur.name,
+        email: cur.email,
+        phone: cur.phone || '+1 (555) 010-2030',
+        role: cur.role,
+        department: cur.department,
+        designation: cur.designation,
+        joiningDate: new Date().toISOString().split('T')[0],
+        status: 'Active',
+        managerName: 'Direct Leadership',
+        location: cur.location || 'Remote, Global',
+        avatar: cur.avatar,
+        leaveBalances: { annual: 16, sick: 10, casual: 5, totalRemaining: 31 },
+      };
+    }
+    setEmployee(emp);
 
-    const all = MockService.getLeaveRequests();
-    setMyLeaves(all.filter((l) => l.employeeId === 'emp-03'));
+    let all: any[] = [];
+    try {
+      const res = await ApiClient.getLeaves();
+      const serverLeaves = res.data || res.leaves;
+      if (Array.isArray(serverLeaves) && serverLeaves.length > 0) {
+        all = serverLeaves;
+      } else {
+        all = MockService.getLeaveRequests();
+      }
+    } catch {
+      all = MockService.getLeaveRequests();
+    }
+
+    setMyLeaves(
+      all.filter(
+        (l) =>
+          l.employeeId === emp.id ||
+          l.employeeId === emp.employeeId ||
+          l.employeeName === emp.name ||
+          (l.user && l.user === emp.id)
+      )
+    );
   };
 
   useEffect(() => {
@@ -177,8 +217,8 @@ export default function EmployeeLeavesPage() {
         isOpen={isApplyOpen}
         onClose={() => setIsApplyOpen(false)}
         onSuccess={() => loadData()}
-        employeeId="emp-03"
-        employeeName="Elena Rostova"
+        employeeId={employee?.employeeId || employee?.id}
+        employeeName={employee?.name}
       />
     </DashboardLayout>
   );

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Check, AlertOctagon, CheckCircle2 } from 'lucide-react';
 import { LeaveRequest, LeaveStatus } from '../../lib/types';
 import { MockService } from '../../lib/mockService';
+import { ApiClient } from '../../services/apiClient.js';
 
 interface LeaveDecisionModalProps {
   isOpen: boolean;
@@ -21,12 +22,24 @@ export default function LeaveDecisionModal({
 }: LeaveDecisionModalProps) {
   const [decision, setDecision] = useState<LeaveStatus>('Approved');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen || !request) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (decision === 'Rejected' && !rejectionReason.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await ApiClient.updateLeaveStatus(
+        (request as any)._id || request.id,
+        decision,
+        decision === 'Rejected' ? rejectionReason : undefined
+      );
+    } catch (err) {
+      console.warn('API leave review fallback:', err);
+    }
 
     const res = MockService.reviewLeave(
       request.id,
@@ -35,6 +48,7 @@ export default function LeaveDecisionModal({
       decision === 'Rejected' ? rejectionReason : undefined
     );
 
+    setIsSubmitting(false);
     if (res) {
       onDecision(res);
       onClose();

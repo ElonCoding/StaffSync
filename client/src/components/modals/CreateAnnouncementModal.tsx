@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Megaphone, CheckCircle2 } from 'lucide-react';
 import { Announcement, AnnouncementPriority } from '../../lib/types';
 import { MockService } from '../../lib/mockService';
+import { ApiClient } from '../../services/apiClient.js';
 
 interface CreateAnnouncementModalProps {
   isOpen: boolean;
@@ -16,31 +17,45 @@ export default function CreateAnnouncementModal({
   isOpen,
   onClose,
   onSuccess,
-  authorName = 'Sarah Jenkins',
-  authorRole = 'Head of People Operations',
+  authorName,
+  authorRole,
 }: CreateAnnouncementModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<AnnouncementPriority>('Normal');
   const [audience, setAudience] = useState('All Employees');
   const [pinned, setPinned] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const currentUser = MockService.getCurrentUser() || {};
+  const effectiveAuthorName = authorName || currentUser.name || 'Leadership';
+  const effectiveAuthorRole = authorRole || (currentUser.role === 'hr' ? 'Head of People Operations' : 'Leadership');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
 
-    const newAnc = MockService.createAnnouncement({
-      title,
-      content,
-      authorName,
-      authorRole,
+    setIsSubmitting(true);
+    const payload = {
+      title: title.trim(),
+      content: content.trim(),
+      authorName: effectiveAuthorName,
+      authorRole: effectiveAuthorRole,
       priority,
       audience,
       pinned,
-    });
+    };
 
+    try {
+      await ApiClient.createAnnouncement(payload);
+    } catch (err) {
+      console.warn('API announcement fallback:', err);
+    }
+
+    const newAnc = MockService.createAnnouncement(payload);
+    setIsSubmitting(false);
     onSuccess(newAnc);
     onClose();
   };

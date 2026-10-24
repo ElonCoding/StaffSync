@@ -44,7 +44,7 @@ export default function DashboardLayout({
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(INITIAL_DEMO_USERS[activeRole] || INITIAL_DEMO_USERS.hr);
+  const [currentUser, setCurrentUser] = useState(() => MockService.getCurrentUser());
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -362,67 +362,13 @@ export default function DashboardLayout({
 
             {/* Right Top Header Controls */}
             <div className="flex items-center gap-3">
-              {/* Quick Role Switcher Pill */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#173D32]/20 bg-[#F7F8F5] hover:bg-[#EAE9DF] text-xs font-semibold text-[#102820] transition-colors"
-                >
-                  <span className="w-2 h-2 rounded-full bg-[#173D32]" />
-                  <span className="hidden sm:inline">Role:</span>
-                  <span className="uppercase text-[11px] tracking-wide text-[#173D32]">
-                    {activeRole}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-[#7E8980]" />
-                </button>
-
-                {showRoleDropdown && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-[#E6EBE5] shadow-xl p-2 z-50 text-xs">
-                    <p className="px-2 py-1 text-[10px] font-bold text-[#7E8980] uppercase tracking-wider">
-                      Switch Role Context
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchRole('hr')}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors ${
-                        activeRole === 'hr' ? 'bg-[#173D32] text-white' : 'hover:bg-[#F7F8F5]'
-                      }`}
-                    >
-                      <ShieldCheck className="w-4 h-4 text-[#C7F36B]" />
-                      <div>
-                        <div className="font-semibold">HR Administrator</div>
-                        <div className="text-[10px] opacity-75">Sarah Jenkins</div>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchRole('manager')}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors ${
-                        activeRole === 'manager' ? 'bg-[#173D32] text-white' : 'hover:bg-[#F7F8F5]'
-                      }`}
-                    >
-                      <UserCheck className="w-4 h-4 text-[#D8C29A]" />
-                      <div>
-                        <div className="font-semibold">Team Manager</div>
-                        <div className="text-[10px] opacity-75">Marcus Vance</div>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchRole('employee')}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors ${
-                        activeRole === 'employee' ? 'bg-[#173D32] text-white' : 'hover:bg-[#F7F8F5]'
-                      }`}
-                    >
-                      <User className="w-4 h-4 text-[#7E8980]" />
-                      <div>
-                        <div className="font-semibold">Employee Self-Service</div>
-                        <div className="text-[10px] opacity-75">Elena Rostova</div>
-                      </div>
-                    </button>
-                  </div>
-                )}
+              {/* Active Role Badge (Static, no mock demo switcher) */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#173D32]/20 bg-[#F7F8F5] text-xs font-semibold text-[#102820]">
+                <span className="w-2 h-2 rounded-full bg-[#173D32]" />
+                <span className="hidden sm:inline text-[#7E8980]">Role:</span>
+                <span className="uppercase text-[11px] tracking-wide text-[#173D32] font-bold">
+                  {currentUser.role || activeRole}
+                </span>
               </div>
 
               {/* Notification Bell */}

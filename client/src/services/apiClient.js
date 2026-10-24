@@ -56,7 +56,7 @@ async function fetchWithFallback(url, options = {}, mockFallbackFn) {
 export const ApiClient = {
   // Auth
   async login(credentials) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/auth/login',
       { method: 'POST', body: JSON.stringify(credentials) },
       async () => {
@@ -66,10 +66,14 @@ export const ApiClient = {
         return { success: true, token: 'mock-jwt-token-' + role, user };
       }
     );
+    if (res?.token) {
+      setAuthToken(res.token);
+    }
+    return res;
   },
 
   async register(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/auth/register',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
@@ -79,6 +83,10 @@ export const ApiClient = {
         return { success: true, token: 'mock-jwt-token-' + role, user };
       }
     );
+    if (res?.token) {
+      setAuthToken(res.token);
+    }
+    return res;
   },
 
   async getMe() {
@@ -160,14 +168,19 @@ export const ApiClient = {
   },
 
   async applyLeave(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/leaves',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
         const leave = MockService.applyLeave(data);
-        return { success: true, leave };
+        return { success: true, leave, data: leave };
       }
     );
+    const leaveItem = res?.data || res?.leave;
+    if (leaveItem) {
+      MockService.applyLeave(leaveItem);
+    }
+    return res;
   },
 
   async updateLeaveStatus(id, status, notes = '') {
@@ -187,30 +200,40 @@ export const ApiClient = {
     const query = date ? `?date=${date}` : '';
     return fetchWithFallback(`/attendance${query}`, {}, async () => {
       const attendance = MockService.getAttendance(date);
-      return { success: true, attendance };
+      return { success: true, attendance, data: attendance };
     });
   },
 
   async clockIn(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/attendance/clock-in',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
         const record = MockService.clockIn(data.employeeId, data.employeeName, data.department);
-        return { success: true, record };
+        return { success: true, record, data: record };
       }
     );
+    const record = res?.data || res?.record;
+    if (record) {
+      MockService.clockIn(record.employeeId, record.employeeName, record.department);
+    }
+    return res;
   },
 
   async clockOut(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/attendance/clock-out',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
         const record = MockService.clockOut(data.employeeId);
-        return { success: true, record };
+        return { success: true, record, data: record };
       }
     );
+    const record = res?.data || res?.record;
+    if (record) {
+      MockService.clockOut(record.employeeId);
+    }
+    return res;
   },
 
   // Announcements
@@ -222,14 +245,19 @@ export const ApiClient = {
   },
 
   async createAnnouncement(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/announcements',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
         const announcement = MockService.createAnnouncement(data);
-        return { success: true, announcement };
+        return { success: true, announcement, data: announcement };
       }
     );
+    const announcement = res?.data || res?.announcement;
+    if (announcement) {
+      MockService.createAnnouncement(announcement);
+    }
+    return res;
   },
 
   async deleteAnnouncement(id) {
@@ -243,19 +271,24 @@ export const ApiClient = {
   async getTrainingPrograms() {
     return fetchWithFallback('/training', {}, async () => {
       const programs = MockService.getTrainingPrograms();
-      return { success: true, programs };
+      return { success: true, programs, data: programs };
     });
   },
 
   async createTrainingProgram(data) {
-    return fetchWithFallback(
+    const res = await fetchWithFallback(
       '/training',
       { method: 'POST', body: JSON.stringify(data) },
       async () => {
         const program = MockService.createTrainingProgram(data);
-        return { success: true, program };
+        return { success: true, program, data: program };
       }
     );
+    const program = res?.data || res?.program;
+    if (program) {
+      MockService.createTrainingProgram(program);
+    }
+    return res;
   },
 
   async updateTrainingProgress(programId, employeeId, progressPercent) {

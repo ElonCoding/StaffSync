@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Employee, EmploymentStatus } from '../../../lib/types';
 import AddEmployeeModal from '../../../components/modals/AddEmployeeModal';
 
@@ -33,7 +34,17 @@ export default function HrEmployeesPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
 
-  const loadData = () => {
+  const loadData = async () => {
+    try {
+      const res = await ApiClient.getEmployees();
+      const serverEmps = res.data || res.employees;
+      if (Array.isArray(serverEmps) && serverEmps.length > 0) {
+        setEmployees(serverEmps);
+        return;
+      }
+    } catch {
+      // fallback
+    }
     setEmployees(MockService.getEmployees());
   };
 

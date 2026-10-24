@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, GraduationCap, CheckCircle2 } from 'lucide-react';
 import { TrainingProgram } from '../../lib/types';
 import { MockService } from '../../lib/mockService';
+import { ApiClient } from '../../services/apiClient.js';
 
 interface CreateTrainingModalProps {
   isOpen: boolean;
@@ -21,43 +22,38 @@ export default function CreateTrainingModal({
   const [department, setDepartment] = useState('Product & Engineering');
   const [durationHours, setDurationHours] = useState(10);
   const [modulesCount, setModulesCount] = useState(5);
-  const [startDate, setStartDate] = useState('2026-11-01');
-  const [endDate, setEndDate] = useState('2026-11-30');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
 
-    const newProg = MockService.createTrainingProgram({
-      title,
-      description,
+    setIsSubmitting(true);
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
       instructor,
       department,
       durationHours,
       modulesCount,
       startDate,
       endDate,
-      status: 'Active',
-      assignedEmployees: [
-        {
-          employeeId: 'emp-03',
-          employeeName: 'Elena Rostova',
-          department: 'Product & Design',
-          progressPercent: 0,
-          completed: false,
-        },
-        {
-          employeeId: 'emp-05',
-          employeeName: 'Aisha Morales',
-          department: 'Engineering',
-          progressPercent: 0,
-          completed: false,
-        },
-      ],
-    });
+      status: 'Active' as const,
+      assignedEmployees: [],
+    };
 
+    try {
+      await ApiClient.createTrainingProgram(payload);
+    } catch (err) {
+      console.warn('API training creation fallback:', err);
+    }
+
+    const newProg = MockService.createTrainingProgram(payload);
+    setIsSubmitting(false);
     onSuccess(newProg);
     onClose();
   };

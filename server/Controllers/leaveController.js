@@ -10,7 +10,9 @@ export async function getLeaves(req, res) {
     try {
       const filter = {};
       if (status && status !== 'All') filter.status = status;
-      if (employeeId) filter.employeeId = employeeId;
+      if (employeeId) {
+        filter.$or = [{ employeeId: employeeId }, { user: employeeId }];
+      }
       if (department) filter.department = department;
       list = await LeaveRequest.find(filter).sort({ createdAt: -1 });
     } catch {
@@ -39,7 +41,7 @@ export async function getLeaves(req, res) {
 
 export async function applyLeave(req, res) {
   try {
-    const { employeeId, employeeName, department, leaveType, startDate, endDate, days, reason } = req.body;
+    const { employeeId, employeeName, employeeAvatar, department, leaveType, startDate, endDate, days, reason } = req.body;
 
     if (!leaveType || !startDate || !endDate || !reason) {
       return res.status(400).json({
@@ -50,15 +52,15 @@ export async function applyLeave(req, res) {
 
     const newReq = {
       id: `lv-${Date.now().toString().slice(-4)}`,
-      employeeId: employeeId || req.user?.employeeId || 'emp-03',
-      employeeName: employeeName || req.user?.name || 'Elena Rostova',
-      employeeAvatar: req.user?.avatar || 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-      department: department || req.user?.department || 'Product & Design',
-      leaveType,
-      startDate,
-      endDate,
-      days: days || 1,
-      reason,
+      employeeId: employeeId || req.user?.employeeId || req.user?.id || 'STF-1008',
+      employeeName: employeeName || req.user?.name || 'Staff Member',
+      employeeAvatar: employeeAvatar || req.user?.avatar || '',
+      department: department || req.user?.department || 'General',
+      leaveType: leaveType || 'Annual',
+      startDate: String(startDate),
+      endDate: String(endDate),
+      days: Number(days) || 1,
+      reason: String(reason).trim(),
       status: 'Pending',
       submittedAt: new Date().toLocaleString([], {
         year: 'numeric',
@@ -77,7 +79,8 @@ export async function applyLeave(req, res) {
         data: created,
         message: 'Leave request submitted successfully.',
       });
-    } catch {
+    } catch (dbErr) {
+      console.error('MongoDB LeaveRequest.create error:', dbErr);
       memoryStore.leaves.unshift(newReq);
       return res.status(201).json({
         success: true,
@@ -206,6 +209,57 @@ export async function rejectLeave(req, res) {
     return res.status(500).json({
       success: false,
       message: 'Failed to reject leave request.',
+      error: err.message,
+    });
+  }
+}
+
+export async function updateLeaveStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { status, reviewerNotes, rejectionReason } = req.body;
+    const reviewerName = req.user?.name || 'Authorized Reviewer';
+
+    const updates = {
+      status: status || 'Approved',
+      reviewedBy: reviewerName,
+      reviewedAt: new Date().toLocaleString(),
+      rejectionReason: reviewerNotes || rejectionReason || '',
+    };
+
+    let updated = null;
+    try {
+      updated = await LeaveRequest.findOneAndUpdate(
+        { $or: [{ _id: id }, { id }] },
+        updates,
+        { new: true }
+      );
+    } catch {
+      // Memory fallback
+    }
+
+    const idx = memoryStore.leaves.findIndex((l) => l.id === id || l._id?.toString() === id);
+    if (idx !== -1) {
+      memoryStore.leaves[idx] = { ...memoryStore.leaves[idx], ...updates };
+      updated = memoryStore.leaves[idx];
+    }
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'Leave request not found.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: updated,
+      message: `Leave request status updated to ${status}.`,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update leave status.',
       error: err.message,
     });
   }

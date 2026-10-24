@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { TrainingProgram } from '../../../lib/types';
 import CreateTrainingModal from '../../../components/modals/CreateTrainingModal';
 
@@ -20,7 +21,17 @@ export default function HrTrainingPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<TrainingProgram | null>(null);
 
-  const loadData = () => {
+  const loadData = async () => {
+    try {
+      const res = await ApiClient.getTrainingPrograms();
+      const serverPrograms = res.data || res.programs;
+      if (Array.isArray(serverPrograms) && serverPrograms.length > 0) {
+        setTrainings(serverPrograms);
+        return;
+      }
+    } catch {
+      // fallback
+    }
     setTrainings(MockService.getTrainingPrograms());
   };
 

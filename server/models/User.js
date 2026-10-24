@@ -7,10 +7,15 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ['HR', 'Employee', 'Manager'],
-    default: 'Employee',
+    enum: ['HR', 'Employee', 'Manager', 'hr', 'employee', 'manager'],
+    default: 'employee',
   },
-  department: { type: String },
+  employeeId: { type: String },
+  department: { type: String, default: 'General' },
+  designation: { type: String },
+  phone: { type: String },
+  location: { type: String },
+  avatar: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

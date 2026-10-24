@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { X, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { LeaveType, LeaveRequest } from '../../lib/types';
 import { MockService } from '../../lib/mockService';
+import { ApiClient } from '../../services/apiClient.js';
+import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
 interface ApplyLeaveModalProps {
   isOpen: boolean;
@@ -16,15 +18,21 @@ export default function ApplyLeaveModal({
   isOpen,
   onClose,
   onSuccess,
-  employeeId = 'emp-03',
-  employeeName = 'Elena Rostova',
+  employeeId,
+  employeeName,
 }: ApplyLeaveModalProps) {
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
-  const [startDate, setStartDate] = useState('2026-11-15');
-  const [endDate, setEndDate] = useState('2026-11-18');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]);
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
+
+  const currentUser = MockService.getCurrentUser() || {};
+  const effectiveEmpId = employeeId || currentUser.employeeId || currentUser.id || 'STF-1008';
+  const effectiveEmpName = employeeName || currentUser.name || 'Staff Member';
+  const effectiveDept = currentUser.department || 'General';
 
   // Calculate day difference
   const start = new Date(startDate);
@@ -32,22 +40,31 @@ export default function ApplyLeaveModal({
   const diffTime = Math.max(0, end.getTime() - start.getTime());
   const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) return;
 
-    const newReq = MockService.applyLeave({
-      employeeId,
-      employeeName,
-      employeeAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-      department: 'Product & Design',
+    setIsSubmitting(true);
+    const payload = {
+      employeeId: effectiveEmpId,
+      employeeName: effectiveEmpName,
+      employeeAvatar: currentUser.avatar || getInitialsAvatar(effectiveEmpName, '#173D32', '#C7F36B'),
+      department: effectiveDept,
       leaveType,
       startDate,
       endDate,
       days: calculatedDays,
-      reason,
-    });
+      reason: reason.trim(),
+    };
 
+    try {
+      await ApiClient.applyLeave(payload);
+    } catch (err) {
+      console.warn('API leave application fallback:', err);
+    }
+
+    const newReq = MockService.applyLeave(payload as any);
+    setIsSubmitting(false);
     onSuccess(newReq);
     onClose();
   };
