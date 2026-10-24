@@ -233,6 +233,9 @@ export default function DashboardLayout({
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
         </button>
+        <p className="text-[10px] text-center text-[#7E8980]/70 pt-1 font-medium select-none">
+          StaffSync • Parikshit Sharma
+        </p>
       </div>
     </>
   );

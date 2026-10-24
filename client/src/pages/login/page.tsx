@@ -191,7 +191,7 @@ export default function LoginPage() {
 
       {/* Footer Notice */}
       <div className="text-center text-xs text-[#7E8980] mt-8">
-        StaffSync Workforce Platform • Verified Prototype
+        StaffSync HRMS • Designed &amp; Created by Parikshit Sharma
       </div>
     </div>
   );

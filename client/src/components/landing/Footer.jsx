@@ -121,7 +121,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-8 border-t border-[#34443A]/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#7E8980]">
-          <p>© {new Date().getFullYear()} StaffSync HRMS. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} StaffSync HRMS • Designed &amp; Created by Parikshit Sharma. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <span className="hover:text-[#D7D8CE] cursor-pointer">Privacy Policy</span>
             <span className="hover:text-[#D7D8CE] cursor-pointer">Terms of Service</span>

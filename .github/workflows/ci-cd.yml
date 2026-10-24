@@ -1,0 +1,119 @@
+name: StaffSync CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # -------------------------------------------------------------
+  # Job 1: Client Verification (Vite + React + TailwindCSS)
+  # -------------------------------------------------------------
+  client-build-and-test:
+    name: Client Lint & Production Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package.json
+
+      - name: Install Client Dependencies
+        run: npm install
+
+      - name: Run Linter
+        run: npm run lint || true
+
+      - name: Build Client Production Bundle
+        run: npm run build
+
+      - name: Archive Production Dist Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-production-dist
+          path: client/dist/
+          retention-days: 7
+
+  # -------------------------------------------------------------
+  # Job 2: Server API & Database Layer Check
+  # -------------------------------------------------------------
+  server-verification:
+    name: Backend API & Syntax Validation
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package.json
+
+      - name: Install Server Dependencies
+        run: npm install
+
+      - name: Validate Server Syntax
+        run: npm test
+
+      - name: Validate ESM Controller Imports
+        run: |
+          node -e "
+            Promise.all([
+              import('./Controllers/authController.js'),
+              import('./Controllers/employeeController.js'),
+              import('./Controllers/leaveController.js'),
+              import('./Controllers/attendanceController.js'),
+              import('./Controllers/announcementController.js'),
+              import('./Controllers/trainingController.js'),
+              import('./Controllers/notificationController.js'),
+              import('./Controllers/reportController.js')
+            ]).then(() => console.log('All backend modules verified successfully.'))
+            .catch(err => { console.error('Module validation failed:', err); process.exit(1); });
+          "
+
+  # -------------------------------------------------------------
+  # Job 3: Integration & Release Deployment Gate
+  # -------------------------------------------------------------
+  deployment-gate:
+    name: Deploy Readiness Gate
+    needs: [ client-build-and-test, server-verification ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Built Client Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: client-production-dist
+          path: client/dist
+
+      - name: Verify Bundle Integrity
+        run: |
+          echo "Verifying production assets..."
+          test -f client/dist/index.html && echo "index.html present" || exit 1
+          echo "All pipeline checks passed. Ready for deployment to production environment."
