@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![StaffSync Logo](client/public/image.svg)
+![StaffSync Logo](client/public/image_copy_3.png)
 
 **A high-performance workforce operating platform designed for modern enterprises.**  
 Unifying verified employee directories, dynamic leave workflows, real-time attendance telemetry, team learning curricula, and executive analytics in an editorial, responsive workspace.

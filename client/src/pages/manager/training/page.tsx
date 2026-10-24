@@ -5,14 +5,17 @@ import {
   Users,
   CheckCircle2,
   Clock,
+  Plus,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { ApiClient } from '../../../services/apiClient.js';
 import { TrainingProgram, Employee } from '../../../lib/types';
+import CreateTrainingModal from '../../../components/modals/CreateTrainingModal';
 
 export default function ManagerTrainingPage() {
   const [trainings, setTrainings] = useState<TrainingProgram[]>([]);
   const [teamMembers, setTeamMembers] = useState<Employee[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -37,11 +40,22 @@ export default function ManagerTrainingPage() {
 
   return (
     <DashboardLayout activeRole="manager" pageTitle="Team Skill Development & Learning">
-      <div className="mb-6">
-        <h2 className="font-serif-display text-2xl text-[#102820]">Skill Development Tracks</h2>
-        <p className="text-xs text-[#7E8980]">
-          Assign and monitor technical competencies and compliance training for your team
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Skill Development Tracks</h2>
+          <p className="text-xs text-[#7E8980]">
+            Assign and monitor technical competencies and compliance training for your team
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCreateOpen(true)}
+          className="px-4 py-2.5 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+        >
+          <Plus className="w-4 h-4 text-[#C7F36B]" />
+          <span>New Curriculum</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -116,6 +130,12 @@ export default function ManagerTrainingPage() {
           })
         )}
       </div>
+
+      <CreateTrainingModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => loadData()}
+      />
     </DashboardLayout>
   );
 }
