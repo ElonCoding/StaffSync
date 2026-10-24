@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { MockService } from '../../services/mockService.js';
+import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
 export default function ApplyLeaveModal({
   isOpen,
@@ -28,7 +29,7 @@ export default function ApplyLeaveModal({
     const newReq = MockService.applyLeave({
       employeeId,
       employeeName,
-      employeeAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+      employeeAvatar: getInitialsAvatar(employeeName, '#173D32', '#C7F36B'),
       department: 'Product & Design',
       leaveType,
       startDate,

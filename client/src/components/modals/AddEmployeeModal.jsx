@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, UserPlus, CheckCircle2 } from 'lucide-react';
 import { MockService } from '../../services/mockService.js';
+import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
 export default function AddEmployeeModal({ isOpen, onClose, onSuccess }) {
   const [name, setName] = useState('');
@@ -30,7 +31,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }) {
       managerId: 'emp-02',
       managerName,
       location,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatar: getInitialsAvatar(name, '#173D32', '#C7F36B'),
       leaveBalances: {
         annual: 15,
         sick: 10,

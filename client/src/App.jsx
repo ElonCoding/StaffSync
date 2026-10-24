@@ -10,6 +10,7 @@ import BenefitsSection from './components/landing/BenefitsSection.jsx';
 import FaqSection from './components/landing/FaqSection.jsx';
 import Footer from './components/landing/Footer.jsx';
 import LoginPage from './pages/login/page';
+import SignupPage from './pages/signup/page';
 import ForgotPasswordPage from './pages/forgot-password/page';
 
 // Modals
@@ -88,6 +89,7 @@ export default function App() {
           }
         />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* HR Experience */}

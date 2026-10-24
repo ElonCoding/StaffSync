@@ -202,12 +202,13 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Prototype Notice */}
-        <div className="mt-8 pt-4 border-t border-[#E6EBE5] text-center">
-          <p className="text-[11px] text-[#7E8980] leading-relaxed">
-            <strong className="text-[#102820]">Development Mode:</strong> Demo accounts above pre-populate
-            role permissions and sample data. Production MongoDB authentication will be connected by
-            Google Antigravity.
+        {/* Sign up Link */}
+        <div className="mt-6 pt-4 border-t border-[#E6EBE5] text-center">
+          <p className="text-xs text-[#7E8980]">
+            Don't have an account yet?{' '}
+            <Link to="/signup" className="font-semibold text-[#173D32] hover:underline">
+              Create an Account
+            </Link>
           </p>
         </div>
       </div>

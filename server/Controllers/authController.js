@@ -112,6 +112,114 @@ export async function login(req, res) {
   }
 }
 
+export async function register(req, res) {
+  try {
+    const { name, email, password, role, department } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, and password are required.',
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check existing via MongoDB if connected
+    let existing = null;
+    const isDbConnected = User.db && User.db.readyState === 1;
+
+    if (isDbConnected) {
+      try {
+        existing = await User.findOne({ email: cleanEmail });
+      } catch (err) {
+        console.warn('[Register] DB lookup failed, falling back:', err.message);
+      }
+    } else {
+      existing = Object.values(memoryStore.users).find((u) => u.email.toLowerCase() === cleanEmail);
+    }
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists.',
+      });
+    }
+
+    const assignedRole = role === 'HR' || role === 'Manager' ? role : 'Employee';
+
+    if (isDbConnected) {
+      try {
+        const newUser = new User({
+          name,
+          email: cleanEmail,
+          password,
+          role: assignedRole,
+          department: department || 'General',
+        });
+
+        await newUser.save();
+
+        const payload = {
+          id: newUser._id.toString(),
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          department: newUser.department,
+        };
+
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        return res.status(201).json({
+          success: true,
+          message: 'User registered successfully.',
+          token,
+          user: payload,
+        });
+      } catch (err) {
+        console.warn('[Register] DB save failed, saving to memoryStore:', err.message);
+      }
+    }
+
+    // Memory Store Fallback
+    const id = 'usr-' + Date.now();
+    const newUser = {
+      id,
+      employeeId: 'STF-' + Math.floor(1000 + Math.random() * 9000),
+      name,
+      email: cleanEmail,
+      role: assignedRole.toLowerCase(),
+      department: department || 'General',
+      designation: assignedRole + ' Member',
+    };
+
+    memoryStore.users[id] = newUser;
+
+    const payload = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      department: newUser.department,
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully.',
+      token,
+      user: payload,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during registration.',
+      error: err.message,
+    });
+  }
+}
+
 export async function getMe(req, res) {
   try {
     return res.json({
@@ -133,3 +241,4 @@ export function logout(req, res) {
     message: 'User logged out successfully.',
   });
 }
+

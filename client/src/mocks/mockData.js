@@ -1,3 +1,5 @@
+import { getInitialsAvatar } from '../lib/avatar.jsx';
+
 export const INITIAL_DEMO_USERS = {
   hr: {
     id: 'usr-hr-01',
@@ -5,7 +7,7 @@ export const INITIAL_DEMO_USERS = {
     name: 'Sarah Jenkins',
     email: 'hr@staffsync.demo',
     role: 'hr',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Sarah Jenkins', '#173D32', '#C7F36B'),
     designation: 'Head of People Operations',
     department: 'Human Resources',
     phone: '+1 (555) 234-5678',
@@ -17,7 +19,7 @@ export const INITIAL_DEMO_USERS = {
     name: 'Marcus Vance',
     email: 'manager@staffsync.demo',
     role: 'manager',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Marcus Vance', '#1E4338', '#D8C29A'),
     designation: 'VP of Product & Engineering',
     department: 'Engineering',
     phone: '+1 (555) 345-6789',
@@ -29,7 +31,7 @@ export const INITIAL_DEMO_USERS = {
     name: 'Elena Rostova',
     email: 'employee@staffsync.demo',
     role: 'employee',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Elena Rostova', '#2C4A3E', '#FFFFFF'),
     designation: 'Staff Product Designer',
     department: 'Product & Design',
     phone: '+1 (555) 456-7890',
@@ -52,7 +54,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-ceo',
     managerName: 'Devon Vance (CEO)',
     location: 'San Francisco, CA',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Sarah Jenkins', '#173D32', '#C7F36B'),
     leaveBalances: { annual: 18, sick: 9, casual: 4, totalRemaining: 31 },
   },
   {
@@ -69,7 +71,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-ceo',
     managerName: 'Devon Vance (CEO)',
     location: 'Austin, TX',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Marcus Vance', '#1E4338', '#D8C29A'),
     leaveBalances: { annual: 14, sick: 8, casual: 3, totalRemaining: 25 },
   },
   {
@@ -86,7 +88,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-02',
     managerName: 'Marcus Vance',
     location: 'Seattle, WA (Remote)',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Elena Rostova', '#2C4A3E', '#FFFFFF'),
     leaveBalances: { annual: 16, sick: 10, casual: 5, totalRemaining: 31 },
   },
   {
@@ -103,7 +105,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-02',
     managerName: 'Marcus Vance',
     location: 'San Francisco, CA',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Devin Thorne', '#153226', '#B7E4C7'),
     leaveBalances: { annual: 12, sick: 6, casual: 2, totalRemaining: 20 },
   },
   {
@@ -120,7 +122,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-02',
     managerName: 'Marcus Vance',
     location: 'New York, NY',
-    avatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Aisha Morales', '#224237', '#FDE047'),
     leaveBalances: { annual: 15, sick: 8, casual: 4, totalRemaining: 27 },
   },
   {
@@ -137,7 +139,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-02',
     managerName: 'Marcus Vance',
     location: 'San Francisco, CA',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Liam Chen', '#173D32', '#93C5FD'),
     leaveBalances: { annual: 20, sick: 10, casual: 5, totalRemaining: 35 },
   },
   {
@@ -154,7 +156,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-01',
     managerName: 'Sarah Jenkins',
     location: 'Chicago, IL',
-    avatar: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Kavita Patel', '#1B3D30', '#F9A8D4'),
     leaveBalances: { annual: 10, sick: 5, casual: 3, totalRemaining: 18 },
   },
   {
@@ -171,7 +173,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-01',
     managerName: 'Sarah Jenkins',
     location: 'Denver, CO',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Julian Sterling', '#203B31', '#FCA5A5'),
     leaveBalances: { annual: 8, sick: 7, casual: 2, totalRemaining: 17 },
   },
   {
@@ -188,7 +190,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-01',
     managerName: 'Sarah Jenkins',
     location: 'Boston, MA',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Nadia Solis', '#254438', '#A7F3D0'),
     leaveBalances: { annual: 17, sick: 9, casual: 5, totalRemaining: 31 },
   },
   {
@@ -205,7 +207,7 @@ export const INITIAL_EMPLOYEES = [
     managerId: 'emp-02',
     managerName: 'Marcus Vance',
     location: 'Remote, US',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
+    avatar: getInitialsAvatar('Tariq Al-Mansoor', '#193B2F', '#E9D5FF'),
     leaveBalances: { annual: 22, sick: 10, casual: 5, totalRemaining: 37 },
   },
 ];
@@ -215,7 +217,7 @@ export const INITIAL_LEAVE_REQUESTS = [
     id: 'lv-001',
     employeeId: 'emp-03',
     employeeName: 'Elena Rostova',
-    employeeAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+    employeeAvatar: getInitialsAvatar('Elena Rostova', '#2C4A3E', '#FFFFFF'),
     department: 'Product & Design',
     leaveType: 'Annual',
     startDate: '2026-11-10',
@@ -229,7 +231,7 @@ export const INITIAL_LEAVE_REQUESTS = [
     id: 'lv-002',
     employeeId: 'emp-05',
     employeeName: 'Aisha Morales',
-    employeeAvatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150&auto=format&fit=crop&q=80',
+    employeeAvatar: getInitialsAvatar('Aisha Morales', '#224237', '#FDE047'),
     department: 'Engineering',
     leaveType: 'Casual',
     startDate: '2026-10-30',
@@ -243,7 +245,7 @@ export const INITIAL_LEAVE_REQUESTS = [
     id: 'lv-003',
     employeeId: 'emp-08',
     employeeName: 'Julian Sterling',
-    employeeAvatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+    employeeAvatar: getInitialsAvatar('Julian Sterling', '#203B31', '#FCA5A5'),
     department: 'Marketing',
     leaveType: 'Annual',
     startDate: '2026-10-20',

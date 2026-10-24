@@ -92,28 +92,28 @@ export default function ForgotPasswordPage() {
           </form>
         ) : (
           <div className="space-y-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-[#173D32]/10 text-[#173D32] mx-auto flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-[#34785B]/15 text-[#34785B] mx-auto flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6 text-[#34785B]" />
             </div>
             <h3 className="font-semibold text-[#102820] text-base">
-              Verification Request Received
+              Password Reset Link Sent
             </h3>
-            <div className="p-4 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] text-left text-xs text-[#34443A] leading-relaxed">
-              <div className="flex items-start gap-2 mb-2 text-[#B7791F] font-semibold">
-                <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Backend Integration Notice:</span>
-              </div>
-              <p>
-                In this frontend prototype phase, outbound SMTP email dispatch requires integration with the
-                Google Antigravity backend service. For demo testing, you can sign in directly using the
-                pre-configured 1-click accounts on the login screen.
-              </p>
+            <p className="text-xs text-[#7E8980]">
+              If an account exists for <strong className="text-[#102820]">{email}</strong>, a secure recovery link has been dispatched. Please check your inbox and spam folder.
+            </p>
+            <div className="p-4 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] text-left text-xs text-[#34443A] space-y-1.5">
+              <p className="font-semibold text-[#102820]">Next steps:</p>
+              <ul className="list-disc list-inside text-[#7E8980] space-y-1 text-[11px]">
+                <li>Open the password reset email</li>
+                <li>Click the single-use verification link</li>
+                <li>Choose a strong, unique 6+ character password</li>
+              </ul>
             </div>
             <Link
               to="/login"
-              className="block w-full py-2.5 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820]"
+              className="block w-full py-2.5 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] transition-colors"
             >
-              Return to Login Screen
+              Return to Sign In
             </Link>
           </div>
         )}

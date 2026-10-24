@@ -163,30 +163,6 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#F7F8F5] flex flex-col antialiased">
-      {/* Top Ambient Prototype Bar */}
-      <div className="bg-[#102820] text-[#EAE9DF] text-[11px] py-1.5 px-4 flex items-center justify-between border-b border-[#34443A]">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#C7F36B]" />
-          <span className="font-medium">StaffSync Frontend Prototype • Interactive Mock State</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={handleResetData}
-            className="text-[10px] text-[#D8C29A] hover:text-white flex items-center gap-1 transition-colors"
-            title="Reset modified mock data to initial demo seed"
-          >
-            <RefreshCw className="w-3 h-3" /> Reset Demo State
-          </button>
-          <Link
-            to="/"
-            className="text-[10px] text-[#7E8980] hover:text-[#EAE9DF] flex items-center gap-1 transition-colors"
-          >
-            Public Site <ExternalLink className="w-2.5 h-2.5" />
-          </Link>
-        </div>
-      </div>
-
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex lg:flex-col w-64 bg-white border-r border-[#E6EBE5] select-none">

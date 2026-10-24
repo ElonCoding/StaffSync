@@ -68,6 +68,19 @@ export const ApiClient = {
     );
   },
 
+  async register(data) {
+    return fetchWithFallback(
+      '/auth/register',
+      { method: 'POST', body: JSON.stringify(data) },
+      async () => {
+        const role = (data.role || 'employee').toLowerCase();
+        const user = MockService.setCurrentUser(role);
+        setAuthToken('mock-jwt-token-' + role);
+        return { success: true, token: 'mock-jwt-token-' + role, user };
+      }
+    );
+  },
+
   async getMe() {
     return fetchWithFallback('/auth/me', {}, async () => {
       const user = MockService.getCurrentUser();
