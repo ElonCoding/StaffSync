@@ -36,19 +36,33 @@ async function apiFetch(url, options = {}) {
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  // Allow 60s for Render free-tier cold-start wakeups
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const res = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers,
-    signal: controller.signal,
-  });
-  clearTimeout(timeoutId);
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Server took too long to wake up. Render free tier takes ~30s on cold start. Please click Sign In again.');
+    }
+    throw new Error('Unable to connect to server. Render backend may be waking up. Please retry in a moment.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
-    const err = new Error('API request failed');
+    let errData = null;
+    try {
+      errData = await res.json();
+    } catch (_) {}
+    const err = new Error(errData?.message || 'API request failed');
     err.status = res.status;
-    try { err.data = await res.json(); } catch (_) {}
+    err.data = errData;
     throw err;
   }
   return await res.json();
