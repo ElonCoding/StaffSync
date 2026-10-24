@@ -1,73 +1,21 @@
 import mongoose from 'mongoose';
 
-const leaveRequestSchema = new mongoose.Schema(
-  {
-    employeeId: {
-      type: String,
-      required: true,
-      ref: 'Employee',
-    },
-    employeeName: {
-      type: String,
-      required: true,
-    },
-    employeeAvatar: {
-      type: String,
-      default: '',
-    },
-    department: {
-      type: String,
-      required: true,
-    },
-    leaveType: {
-      type: String,
-      enum: ['Annual', 'Sick', 'Casual', 'Parental', 'Unpaid'],
-      required: true,
-    },
-    startDate: {
-      type: String,
-      required: true,
-    },
-    endDate: {
-      type: String,
-      required: true,
-    },
-    days: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    reason: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    status: {
-      type: String,
-      enum: ['Pending', 'Approved', 'Rejected'],
-      default: 'Pending',
-    },
-    submittedAt: {
-      type: String,
-      default: () => new Date().toLocaleString(),
-    },
-    reviewedBy: {
-      type: String,
-      default: '',
-    },
-    reviewedAt: {
-      type: String,
-      default: '',
-    },
-    rejectionReason: {
-      type: String,
-      default: '',
-    },
+const leavesSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  reason: { type: String, required: true },
+  status: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending',
   },
-  {
-    timestamps: true,
-  }
-);
+  approverRole: {
+    type: String,
+    enum: ['HR', 'Manager'],
+  },
+  createdAt: { type: Date, default: Date.now },
+});
 
-export const LeaveRequest = mongoose.model('LeaveRequest', leaveRequestSchema);
-export default LeaveRequest;
+export const Leave = mongoose.model('Leave', leavesSchema);
+export default Leave;
