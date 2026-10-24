@@ -17,6 +17,8 @@ const employeeSchema = new mongoose.Schema({
   address: { type: String },
   location: { type: String },
   managerName: { type: String },
+  emergencyContact: { type: String },
+  avatar: { type: String },
   leaveBalances: {
     annual: { type: Number, default: 15 },
     sick: { type: Number, default: 10 },

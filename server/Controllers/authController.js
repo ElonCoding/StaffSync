@@ -1,10 +1,15 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
-import { memoryStore, INITIAL_DEMO_USERS } from '../services/dataStore.js';
+import { Employee } from '../models/Employee.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'staffsync_dev_jwt_secret_key_2026';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+/**
+ * Real DB Authentication Login
+ * Rejects any credentials not stored in MongoDB Atlas
+ */
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -18,86 +23,42 @@ export async function login(req, res) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Check MongoDB if connected
-    let userRecord = null;
-    try {
-      userRecord = await User.findOne({ email: cleanEmail });
-    } catch {
-      // DB offline, fallback to memory
-    }
+    // Query real MongoDB Atlas user record
+    const userRecord = await User.findOne({ email: cleanEmail });
 
-    if (userRecord) {
-      const isMatch = await userRecord.comparePassword(password);
-      if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password credentials.',
-        });
-      }
-
-      const payload = {
-        id: userRecord._id.toString(),
-        employeeId: userRecord.employeeId,
-        name: userRecord.name,
-        email: userRecord.email,
-        role: (userRecord.role || 'employee').toLowerCase(),
-        department: userRecord.department,
-        designation: userRecord.designation,
-        avatar: userRecord.avatar,
-      };
-
-      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      return res.json({
-        success: true,
-        token,
-        user: payload,
+    if (!userRecord) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password. User not found in database.',
       });
     }
 
-    // Memory Store / Demo Accounts check
-    const demoUser = Object.values(memoryStore.users).find(
-      (u) => u.email.toLowerCase() === cleanEmail
-    );
-
-    // If demo credentials matched
-    if (demoUser) {
-      const payload = {
-        id: demoUser.id,
-        employeeId: demoUser.employeeId,
-        name: demoUser.name,
-        email: demoUser.email,
-        role: demoUser.role,
-        department: demoUser.department,
-        designation: demoUser.designation,
-        avatar: demoUser.avatar,
-      };
-
-      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      return res.json({
-        success: true,
-        token,
-        user: payload,
+    const isMatch = await userRecord.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password credentials.',
       });
     }
 
-    // Role-based matching for quick demo testing
-    let assignedRole = 'employee';
-    if (cleanEmail.includes('hr') || cleanEmail.includes('admin')) assignedRole = 'hr';
-    else if (cleanEmail.includes('manager') || cleanEmail.includes('lead')) assignedRole = 'manager';
+    // Lookup matching employee profile if created
+    const employee = await Employee.findOne({
+      $or: [{ user: userRecord._id }, { email: cleanEmail }],
+    }).lean();
 
-    const fallbackUser = INITIAL_DEMO_USERS[assignedRole];
     const payload = {
-      id: fallbackUser.id,
-      employeeId: fallbackUser.employeeId,
-      name: fallbackUser.name,
-      email: cleanEmail,
-      role: fallbackUser.role,
-      department: fallbackUser.department,
-      designation: fallbackUser.designation,
-      avatar: fallbackUser.avatar,
+      id: userRecord._id.toString(),
+      employeeId: employee?.employeeId || userRecord.employeeId || 'STF-0000',
+      name: userRecord.name,
+      email: userRecord.email,
+      role: (userRecord.role || 'employee').toLowerCase(),
+      department: employee?.department || userRecord.department || 'General',
+      designation: employee?.designation || employee?.position || userRecord.designation || 'Staff Member',
+      avatar: employee?.avatar || userRecord.avatar || '',
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
     return res.json({
       success: true,
       token,
@@ -112,6 +73,9 @@ export async function login(req, res) {
   }
 }
 
+/**
+ * Register new user into real MongoDB Atlas collections (User + Employee)
+ */
 export async function register(req, res) {
   try {
     const { name, email, password, role, department } = req.body;
@@ -125,20 +89,8 @@ export async function register(req, res) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Check existing via MongoDB if connected
-    let existing = null;
-    const isDbConnected = User.db && User.db.readyState === 1;
-
-    if (isDbConnected) {
-      try {
-        existing = await User.findOne({ email: cleanEmail });
-      } catch (err) {
-        console.warn('[Register] DB lookup failed, falling back:', err.message);
-      }
-    } else {
-      existing = Object.values(memoryStore.users).find((u) => u.email.toLowerCase() === cleanEmail);
-    }
-
+    // Verify uniqueness in MongoDB
+    const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
       return res.status(409).json({
         success: false,
@@ -152,85 +104,57 @@ export async function register(req, res) {
       : rawRole.includes('man') || rawRole.includes('lead')
       ? 'manager'
       : 'employee';
+
     const employeeId = `STF-${Math.floor(1000 + Math.random() * 9000)}`;
-    const designation = `${assignedRole === 'hr' ? 'People Operations Specialist' : assignedRole === 'manager' ? 'Team Lead' : 'Software Engineer'}`;
+    const designation = `${
+      assignedRole === 'hr'
+        ? 'People Operations Specialist'
+        : assignedRole === 'manager'
+        ? 'Team Lead'
+        : 'Software Engineer'
+    }`;
 
-    if (isDbConnected) {
-      try {
-        const newUser = new User({
-          name,
-          email: cleanEmail,
-          password,
-          role: assignedRole,
-          department: department || 'General',
-          employeeId,
-          designation,
-        });
-
-        await newUser.save();
-
-        // Also create matching Employee doc in MongoDB Atlas
-        try {
-          const { Employee } = await import('../models/Employee.js');
-          await Employee.create({
-            user: newUser._id,
-            name: newUser.name,
-            email: newUser.email,
-            employeeId,
-            department: newUser.department,
-            designation,
-            position: designation,
-            role: assignedRole.toLowerCase(),
-            status: 'Active',
-            joiningDate: new Date().toISOString().split('T')[0],
-          });
-        } catch (empErr) {
-          console.warn('[Register] Employee profile save note:', empErr.message);
-        }
-
-        const payload = {
-          id: newUser._id.toString(),
-          employeeId: newUser.employeeId,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role.toLowerCase(),
-          department: newUser.department,
-          designation: newUser.designation,
-        };
-
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-
-        return res.status(201).json({
-          success: true,
-          message: 'User registered successfully.',
-          token,
-          user: payload,
-        });
-      } catch (err) {
-        console.warn('[Register] DB save failed, saving to memoryStore:', err.message);
-      }
-    }
-
-    // Memory Store Fallback
-    const id = 'usr-' + Date.now();
-    const newUser = {
-      id,
-      employeeId: 'STF-' + Math.floor(1000 + Math.random() * 9000),
+    // Create User record in MongoDB Atlas
+    const newUser = new User({
       name,
       email: cleanEmail,
-      role: assignedRole.toLowerCase(),
+      password,
+      role: assignedRole,
       department: department || 'General',
-      designation: assignedRole + ' Member',
-    };
+      employeeId,
+      designation,
+    });
 
-    memoryStore.users[id] = newUser;
+    await newUser.save();
+
+    // Create matching Employee document in MongoDB Atlas
+    let newEmployee = null;
+    try {
+      newEmployee = await Employee.create({
+        user: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        employeeId,
+        department: newUser.department,
+        designation,
+        position: designation,
+        role: assignedRole,
+        status: 'Active',
+        joiningDate: new Date().toISOString().split('T')[0],
+      });
+    } catch (empErr) {
+      console.warn('[Register] Employee profile save notice:', empErr.message);
+    }
 
     const payload = {
-      id: newUser.id,
+      id: newUser._id.toString(),
+      employeeId: newEmployee?.employeeId || newUser.employeeId,
       name: newUser.name,
       email: newUser.email,
-      role: newUser.role,
+      role: newUser.role.toLowerCase(),
       department: newUser.department,
+      designation: newUser.designation,
+      avatar: newUser.avatar || '',
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -250,16 +174,60 @@ export async function register(req, res) {
   }
 }
 
+/**
+ * Fetch authenticated user from MongoDB Atlas
+ */
 export async function getMe(req, res) {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Invalid token session.',
+      });
+    }
+
+    const isValidId = mongoose.Types.ObjectId.isValid(req.user.id);
+    const query = isValidId
+      ? { _id: req.user.id }
+      : { email: (req.user.email || '').toLowerCase() };
+
+    const userRecord = await User.findOne(query).select('-password').lean();
+
+    if (!userRecord) {
+      return res.status(401).json({
+        success: false,
+        message: 'User account not found in database. Please log in again.',
+      });
+    }
+
+    const employee = await Employee.findOne({
+      $or: [{ user: userRecord._id }, { email: userRecord.email.toLowerCase() }],
+    }).lean();
+
     return res.json({
       success: true,
-      user: req.user,
+      user: {
+        id: userRecord._id.toString(),
+        _id: userRecord._id.toString(),
+        name: userRecord.name,
+        email: userRecord.email,
+        role: (userRecord.role || 'employee').toLowerCase(),
+        employeeId: employee?.employeeId || userRecord.employeeId || 'STF-0000',
+        department: employee?.department || userRecord.department || 'General',
+        designation: employee?.designation || employee?.position || userRecord.designation || 'Staff Member',
+        avatar: employee?.avatar || userRecord.avatar || '',
+        phone: employee?.phone || userRecord.phone || '',
+        location: employee?.location || userRecord.location || '',
+        status: employee?.status || 'Active',
+        joiningDate: employee?.joiningDate || '',
+        managerName: employee?.managerName || '',
+        emergencyContact: employee?.emergencyContact || '',
+      },
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: 'Error fetching authenticated user.',
+      message: 'Error fetching authenticated user from database.',
       error: err.message,
     });
   }
@@ -271,4 +239,3 @@ export function logout(req, res) {
     message: 'User logged out successfully.',
   });
 }
-

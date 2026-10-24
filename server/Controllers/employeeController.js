@@ -1,38 +1,21 @@
+import mongoose from 'mongoose';
 import { Employee } from '../models/Employee.js';
-import { memoryStore } from '../services/dataStore.js';
 
 export async function getEmployees(req, res) {
   try {
     const { search, department, status } = req.query;
 
-    let list = [];
-    try {
-      let filter = {};
-      if (department && department !== 'All') filter.department = department;
-      if (status && status !== 'All') filter.status = status;
-      if (search) {
-        filter.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { employeeId: { $regex: search, $options: 'i' } },
-        ];
-      }
-      list = await Employee.find(filter).sort({ createdAt: -1 });
-    } catch {
-      // Memory fallback
-      list = memoryStore.employees.filter((emp) => {
-        const matchesDept = !department || department === 'All' || emp.department === department;
-        const matchesStatus = !status || status === 'All' || emp.status === status;
-        const query = (search || '').toLowerCase();
-        const matchesSearch =
-          !query ||
-          emp.name.toLowerCase().includes(query) ||
-          emp.email.toLowerCase().includes(query) ||
-          emp.employeeId.toLowerCase().includes(query) ||
-          emp.designation.toLowerCase().includes(query);
-        return matchesDept && matchesStatus && matchesSearch;
-      });
+    let filter = {};
+    if (department && department !== 'All') filter.department = department;
+    if (status && status !== 'All') filter.status = status;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { employeeId: { $regex: search, $options: 'i' } },
+      ];
     }
+    const list = await Employee.find(filter).sort({ createdAt: -1 });
 
     return res.json({
       success: true,
@@ -51,12 +34,12 @@ export async function getEmployees(req, res) {
 export async function getEmployeeById(req, res) {
   try {
     const { id } = req.params;
-    let found = null;
-    try {
-      found = await Employee.findOne({ $or: [{ _id: id }, { employeeId: id }] });
-    } catch {
-      found = memoryStore.employees.find((e) => e.id === id || e.employeeId === id);
-    }
+    const isValidId = mongoose.Types.ObjectId.isValid(id);
+    const query = isValidId
+      ? { $or: [{ _id: id }, { user: id }, { employeeId: id }] }
+      : { employeeId: id };
+
+    const found = await Employee.findOne(query);
 
     if (!found) {
       return res.status(404).json({
@@ -88,10 +71,11 @@ export async function createEmployee(req, res) {
       });
     }
 
-    const empId = data.employeeId || `STF-${1000 + memoryStore.employees.length + 1}`;
-    const newEmp = {
+    const count = await Employee.countDocuments();
+    const empId = data.employeeId || `STF-${1000 + count + 1}`;
+
+    const newEmp = await Employee.create({
       ...data,
-      id: `emp-${Date.now().toString().slice(-4)}`,
       employeeId: empId,
       status: data.status || 'Active',
       leaveBalances: data.leaveBalances || {
@@ -100,24 +84,13 @@ export async function createEmployee(req, res) {
         casual: 5,
         totalRemaining: 30,
       },
-    };
+    });
 
-    try {
-      const created = await Employee.create(newEmp);
-      memoryStore.employees.unshift(created);
-      return res.status(201).json({
-        success: true,
-        data: created,
-        message: 'Employee record created successfully.',
-      });
-    } catch {
-      memoryStore.employees.unshift(newEmp);
-      return res.status(201).json({
-        success: true,
-        data: newEmp,
-        message: 'Employee record created in memory storage.',
-      });
-    }
+    return res.status(201).json({
+      success: true,
+      data: newEmp,
+      message: 'Employee record created successfully.',
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -130,7 +103,7 @@ export async function createEmployee(req, res) {
 export async function updateEmployee(req, res) {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
 
     // Disallow employee role escalation if employee is updating self
     if (req.user && req.user.role === 'employee') {
@@ -140,22 +113,12 @@ export async function updateEmployee(req, res) {
       delete updates.department;
     }
 
-    let updated = null;
-    try {
-      updated = await Employee.findOneAndUpdate(
-        { $or: [{ _id: id }, { employeeId: id }] },
-        updates,
-        { new: true }
-      );
-    } catch {
-      // Memory fallback
-    }
+    const isValidId = mongoose.Types.ObjectId.isValid(id);
+    const query = isValidId
+      ? { $or: [{ _id: id }, { user: id }, { employeeId: id }] }
+      : { employeeId: id };
 
-    const idx = memoryStore.employees.findIndex((e) => e.id === id || e.employeeId === id);
-    if (idx !== -1) {
-      memoryStore.employees[idx] = { ...memoryStore.employees[idx], ...updates };
-      updated = memoryStore.employees[idx];
-    }
+    const updated = await Employee.findOneAndUpdate(query, updates, { new: true });
 
     if (!updated) {
       return res.status(404).json({
@@ -181,14 +144,19 @@ export async function updateEmployee(req, res) {
 export async function deleteEmployee(req, res) {
   try {
     const { id } = req.params;
-    try {
-      await Employee.findOneAndDelete({ $or: [{ _id: id }, { employeeId: id }] });
-    } catch {
-      // Memory fallback
-    }
+    const isValidId = mongoose.Types.ObjectId.isValid(id);
+    const query = isValidId
+      ? { $or: [{ _id: id }, { employeeId: id }] }
+      : { employeeId: id };
 
-    const initialLen = memoryStore.employees.length;
-    memoryStore.employees = memoryStore.employees.filter((e) => e.id !== id && e.employeeId !== id);
+    const deleted = await Employee.findOneAndDelete(query);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found for deletion.',
+      });
+    }
 
     return res.json({
       success: true,

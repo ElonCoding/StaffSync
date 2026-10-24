@@ -18,7 +18,7 @@ export default function EmployeeProfilePage() {
   const [employee, setEmployee] = useState<any>(null);
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
-  const [emergencyContact, setEmergencyContact] = useState('Alex Rostova (+1 555-987-6543)');
+  const [emergencyContact, setEmergencyContact] = useState('');
   const [savedNotice, setSavedNotice] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +30,7 @@ export default function EmployeeProfilePage() {
         setEmployee(user);
         setPhone(user.phone || '');
         setLocation(user.location || '');
+        setEmergencyContact(user.emergencyContact || '');
       } catch (err) {
         console.error('Failed to load profile:', err);
       } finally {
@@ -48,6 +49,7 @@ export default function EmployeeProfilePage() {
       await ApiClient.updateEmployee(targetId, {
         phone,
         location,
+        emergencyContact,
       });
 
       setSavedNotice(true);
@@ -148,7 +150,7 @@ export default function EmployeeProfilePage() {
               </div>
               <div>
                 <span className="text-[#7E8980] block text-[11px]">Joining Date</span>
-                <span className="font-semibold text-[#102820]">{employee.joiningDate || '2026-01-01'}</span>
+                <span className="font-semibold text-[#102820]">{employee.joiningDate || employee.joinDate?.toString().slice(0, 10) || '—'}</span>
               </div>
             </div>
           </div>
