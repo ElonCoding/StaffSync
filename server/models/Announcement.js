@@ -4,42 +4,24 @@ const announcementSchema = new mongoose.Schema(
   {
     title: {
       type: String,
+      required: [true, 'Title is required'],
+    },
+    message: {
+      type: String,
+      required: [true, 'Message is required'],
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
-      trim: true,
     },
-    content: {
+    targetAudience: {
       type: String,
-      required: true,
-    },
-    authorName: {
-      type: String,
-      required: true,
-    },
-    authorRole: {
-      type: String,
-      default: 'Leadership',
-    },
-    publishedAt: {
-      type: String,
-      default: () => new Date().toISOString().split('T')[0],
-    },
-    priority: {
-      type: String,
-      enum: ['High', 'Medium', 'Normal'],
-      default: 'Normal',
-    },
-    audience: {
-      type: String,
-      default: 'All Employees',
-    },
-    pinned: {
-      type: Boolean,
-      default: false,
+      enum: ['All', 'Employees', 'Managers'],
+      default: 'All',
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 export const Announcement = mongoose.model('Announcement', announcementSchema);
