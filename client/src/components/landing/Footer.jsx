@@ -12,8 +12,7 @@ export default function Footer() {
               Experience the synchronized workforce.
             </h3>
             <p className="text-sm sm:text-base text-[#D7D8CE]">
-              Launch the interactive live prototype with pre-populated demo accounts for HR, managers,
-              and employees.
+              Streamline employee directories, attendance telemetry, leave requests, and workforce analytics in one place.
             </p>
           </div>
 
@@ -22,7 +21,7 @@ export default function Footer() {
               to="/login"
               className="px-6 py-3.5 rounded-xl bg-[#C7F36B] text-[#102820] font-semibold text-sm hover:bg-white transition-all shadow-md flex items-center gap-2 group"
             >
-              <span>Launch Live Demo</span>
+              <span>Sign In to Workspace</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
