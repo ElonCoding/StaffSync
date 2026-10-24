@@ -1,53 +1,19 @@
 import mongoose from 'mongoose';
 
-const attendanceSchema = new mongoose.Schema(
-  {
-    employeeId: {
-      type: String,
-      required: true,
-      ref: 'Employee',
-    },
-    employeeName: {
-      type: String,
-      required: true,
-    },
-    department: {
-      type: String,
-      required: true,
-    },
-    date: {
-      type: String, // YYYY-MM-DD
-      required: true,
-    },
-    checkInTime: {
-      type: String,
-      default: '',
-    },
-    checkOutTime: {
-      type: String,
-      default: '',
-    },
-    totalHours: {
-      type: Number,
-      default: 0,
-    },
-    status: {
-      type: String,
-      enum: ['Present', 'Late', 'On Leave', 'Absent'],
-      default: 'Present',
-    },
-    notes: {
-      type: String,
-      default: '',
-    },
+const attendanceSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  date: { type: Date, required: true },
+  checkInTime: { type: String },
+  checkOutTime: { type: String },
+  status: {
+    type: String,
+    enum: ['Present', 'Absent', 'Half Day'],
+    default: 'Present',
   },
-  {
-    timestamps: true,
-  }
-);
+  createdAt: { type: Date, default: Date.now },
+});
 
-// Unique index compound on employeeId and date
-attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ user: 1, date: 1 }, { unique: true });
 
 export const Attendance = mongoose.model('Attendance', attendanceSchema);
 export default Attendance;
