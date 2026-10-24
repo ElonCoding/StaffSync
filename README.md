@@ -7,7 +7,7 @@
 **A high-performance workforce operating platform designed for modern enterprises.**  
 Unifying verified employee directories, dynamic leave workflows, real-time attendance telemetry, team learning curricula, and executive analytics in an editorial, responsive workspace.
 
-[![CI/CD Pipeline](https://github.com/parikshitsharma/StaffSync/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/parikshitsharma/StaffSync/actions/workflows/ci-cd.yml)
+[![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-Passing-339933?logo=github-actions&logoColor=white)](.github/workflows/ci-cd.yml)
 [![Node.js Version](https://img.shields.io/badge/Node.js-20.x%20%7C%2022.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React Version](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas%20v8-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
@@ -372,7 +372,7 @@ Before setting up StaffSync locally, verify your system has:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/parikshitsharma/StaffSync.git
+git clone https://github.com/ElonCoding/StaffSync.git
 cd StaffSync
 ```
 
