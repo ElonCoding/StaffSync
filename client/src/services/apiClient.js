@@ -1,8 +1,15 @@
 // API client for StaffSync — real backend only, no mocks.
 
+const isProduction =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1';
+
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
-  'http://localhost:5000/api';
+  (isProduction
+    ? 'https://staffsync-czzq.onrender.com/api'
+    : 'http://localhost:5000/api');
 
 const TOKEN_KEY = 'staffsync_auth_token_v1';
 
