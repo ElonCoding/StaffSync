@@ -18,4 +18,6 @@ const leavesSchema = new mongoose.Schema({
 });
 
 export const Leave = mongoose.model('Leave', leavesSchema);
+export const LeaveRequest = Leave;
 export default Leave;
+

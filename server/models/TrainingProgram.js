@@ -18,4 +18,6 @@ const trainingSchema = new mongoose.Schema(
 );
 
 export const Training = mongoose.model('Training', trainingSchema);
+export const TrainingProgram = Training;
 export default Training;
+
