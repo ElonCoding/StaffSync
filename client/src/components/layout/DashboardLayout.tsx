@@ -12,22 +12,14 @@ import {
   BarChart3,
   Settings,
   Bell,
-  Search,
   LogOut,
-  ChevronDown,
   Menu,
   X,
-  UserCheck,
-  ShieldCheck,
   User,
   Clock3,
-  CheckCircle2,
-  RefreshCw,
-  ExternalLink,
 } from 'lucide-react';
 import { UserRole, NotificationItem } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
-import { INITIAL_DEMO_USERS } from '../../lib/mockData';
+import { ApiClient } from '../../services/apiClient.js';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -44,76 +36,76 @@ export default function DashboardLayout({
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(() => MockService.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [clockedIn, setClockedIn] = useState(false);
   const [clockMessage, setClockMessage] = useState('');
 
-  // Sync state from MockService and subscribe to storage changes
   useEffect(() => {
-    const syncState = () => {
-      const user = MockService.getCurrentUser();
-      setCurrentUser(user);
-      setNotifications(MockService.getNotifications());
+    // Load current user from real auth
+    ApiClient.getMe()
+      .then((res: any) => {
+        const user = res?.user || res;
+        setCurrentUser(user);
+      })
+      .catch(() => {
+        // Token invalid — redirect to login
+        navigate('/login');
+      });
 
-      // Check today's attendance for current user
-      const today = new Date().toISOString().split('T')[0];
-      const todayRecords = MockService.getAttendance(today);
-      const userRecord = todayRecords.find((r) => r.employeeId === user.id || r.employeeName === user.name);
-      if (userRecord && userRecord.checkInTime && !userRecord.checkOutTime) {
-        setClockedIn(true);
-      } else {
-        setClockedIn(false);
-      }
-    };
+    // Load notifications
+    ApiClient.getNotifications()
+      .then((res: any) => {
+        setNotifications(res?.notifications || res?.data || []);
+      })
+      .catch(() => setNotifications([]));
 
-    syncState();
-
-    const handleStorageUpdate = () => {
-      syncState();
-    };
-
-    window.addEventListener('staffsync_storage_update', handleStorageUpdate);
-    return () => window.removeEventListener('staffsync_storage_update', handleStorageUpdate);
+    // Check today's attendance
+    const today = new Date().toISOString().split('T')[0];
+    ApiClient.getAttendance({ date: today })
+      .then((res: any) => {
+        const records: any[] = res?.attendance || res?.data || [];
+        const myRecord = records.find((r: any) => r.checkInTime && !r.checkOutTime);
+        setClockedIn(!!myRecord);
+      })
+      .catch(() => setClockedIn(false));
   }, [activeRole]);
 
-  // Handle Quick Clock In / Out
-  const handleToggleClock = () => {
-    if (!clockedIn) {
-      MockService.clockIn(currentUser.id, currentUser.name, currentUser.department);
-      setClockedIn(true);
-      setClockMessage('Checked in at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    } else {
-      MockService.clockOut(currentUser.id);
-      setClockedIn(false);
-      setClockMessage('Checked out at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  const handleToggleClock = async () => {
+    if (!currentUser) return;
+    try {
+      if (!clockedIn) {
+        await ApiClient.clockIn({
+          employeeId: currentUser._id || currentUser.id,
+          employeeName: currentUser.name,
+          department: currentUser.department,
+        });
+        setClockedIn(true);
+        setClockMessage('Checked in at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      } else {
+        await ApiClient.clockOut({
+          employeeId: currentUser._id || currentUser.id,
+        });
+        setClockedIn(false);
+        setClockMessage('Checked out at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    } catch (err) {
+      console.error('Clock toggle failed:', err);
     }
     setTimeout(() => setClockMessage(''), 3500);
   };
 
-  // Switch demo user
-  const handleSwitchRole = (newRole: UserRole) => {
-    MockService.setCurrentUser(newRole);
-    setShowRoleDropdown(false);
-    if (newRole === 'hr') navigate('/hr/dashboard');
-    else if (newRole === 'manager') navigate('/manager/dashboard');
-    else navigate('/employee/dashboard');
+  const handleMarkAllRead = async () => {
+    try {
+      await ApiClient.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {}
   };
 
-  // Mark single or all notifications read
-  const handleMarkAllRead = () => {
-    MockService.markAllNotificationsRead();
-    setNotifications(MockService.getNotifications());
-  };
-
-  const handleResetData = () => {
-    if (confirm('Reset prototype data back to fresh demo defaults?')) {
-      MockService.resetToDefaults();
-      router.refresh();
-    }
+  const handleSignOut = () => {
+    ApiClient.logout();
+    navigate('/login');
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -125,12 +117,11 @@ export default function DashboardLayout({
     badge?: string;
   }
 
-  // Navigation Links by Role
   const navConfigs: Record<UserRole, NavItem[]> = {
     hr: [
       { name: 'Dashboard', href: '/hr/dashboard', icon: LayoutDashboard },
-      { name: 'Employees', href: '/hr/employees', icon: Users, badge: '10' },
-      { name: 'Leave Requests', href: '/hr/leaves', icon: CalendarCheck, badge: '2' },
+      { name: 'Employees', href: '/hr/employees', icon: Users },
+      { name: 'Leave Requests', href: '/hr/leaves', icon: CalendarCheck },
       { name: 'Daily Attendance', href: '/hr/attendance', icon: Clock },
       { name: 'Announcements', href: '/hr/announcements', icon: Megaphone },
       { name: 'Training & Skills', href: '/hr/training', icon: GraduationCap },
@@ -139,8 +130,8 @@ export default function DashboardLayout({
     ],
     manager: [
       { name: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-      { name: 'Team Members', href: '/manager/team', icon: Users, badge: '6' },
-      { name: 'Leave Approvals', href: '/manager/leaves', icon: CalendarCheck, badge: '2' },
+      { name: 'Team Members', href: '/manager/team', icon: Users },
+      { name: 'Leave Approvals', href: '/manager/leaves', icon: CalendarCheck },
       { name: 'Team Attendance', href: '/manager/attendance', icon: Clock },
       { name: 'Training Tracks', href: '/manager/training', icon: GraduationCap },
       { name: 'Announcements', href: '/manager/announcements', icon: Megaphone },
@@ -160,179 +151,114 @@ export default function DashboardLayout({
   };
 
   const currentNav = navConfigs[activeRole] || navConfigs.hr;
+  const avatarUrl = currentUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'U')}&background=173D32&color=C7F36B&size=64`;
+
+  const SidebarContent = () => (
+    <>
+      {/* Brand Header */}
+      <div className="p-5 border-b border-[#E6EBE5] flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#173D32] flex items-center justify-center text-[#EAE9DF] shadow-sm">
+            <svg className="w-4 h-4 text-[#C7F36B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 12a4 4 0 0 1 8 0" />
+              <path d="M12 8v8" />
+            </svg>
+          </div>
+          <div>
+            <span className="font-serif-display text-lg font-bold text-[#102820] leading-none block">StaffSync</span>
+            <span className="text-[10px] text-[#7E8980] font-medium uppercase tracking-wider block mt-0.5">
+              {activeRole === 'hr' ? 'HR Administration' : activeRole === 'manager' ? 'Manager Desk' : 'Employee Portal'}
+            </span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Current User Pill */}
+      {currentUser && (
+        <div className="p-4 mx-3 my-3 rounded-2xl bg-[#EAE9DF]/60 border border-[#173D32]/10 flex items-center gap-3">
+          <img src={avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-xl object-cover border border-white shadow-sm shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-[#102820] truncate">{currentUser.name}</p>
+            <p className="text-[10px] text-[#7E8980] truncate">{currentUser.designation || currentUser.role}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Nav Items */}
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto py-2">
+        {currentNav.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                isActive
+                  ? 'bg-[#173D32] text-[#EAE9DF] shadow-sm'
+                  : 'text-[#34443A] hover:bg-[#F7F8F5] hover:text-[#173D32]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[#C7F36B]' : 'text-[#7E8980]'}`} />
+                <span>{item.name}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-4 border-t border-[#E6EBE5] space-y-2">
+        <button
+          type="button"
+          onClick={handleToggleClock}
+          className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            clockedIn
+              ? 'bg-[#34785B]/15 text-[#34785B] border border-[#34785B]/30 hover:bg-[#34785B]/25'
+              : 'bg-[#173D32] text-[#EAE9DF] hover:bg-[#102820]'
+          }`}
+        >
+          <Clock3 className="w-3.5 h-3.5" />
+          <span>{clockedIn ? 'Clocked In (Active)' : 'Quick Clock In'}</span>
+        </button>
+        {clockMessage && (
+          <p className="text-[10px] text-center text-[#34785B] font-medium">{clockMessage}</p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="w-full py-2 px-3 rounded-xl text-xs font-medium text-[#7E8980] hover:text-[#C24141] hover:bg-[#C24141]/5 flex items-center justify-center gap-2 transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F8F5] flex flex-col antialiased">
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex lg:flex-col w-64 bg-white border-r border-[#E6EBE5] select-none">
-          {/* Brand Header */}
-          <div className="p-5 border-b border-[#E6EBE5] flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#173D32] flex items-center justify-center text-[#EAE9DF] shadow-sm">
-                <svg
-                  className="w-4 h-4 text-[#C7F36B]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 12a4 4 0 0 1 8 0" />
-                  <path d="M12 8v8" />
-                </svg>
-              </div>
-              <div>
-                <span className="font-serif-display text-lg font-bold text-[#102820] leading-none block">
-                  StaffSync
-                </span>
-                <span className="text-[10px] text-[#7E8980] font-medium uppercase tracking-wider block mt-0.5">
-                  {activeRole === 'hr'
-                    ? 'HR Administration'
-                    : activeRole === 'manager'
-                    ? 'Manager Desk'
-                    : 'Employee Portal'}
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          {/* Current User Pill */}
-          <div className="p-4 mx-3 my-3 rounded-2xl bg-[#EAE9DF]/60 border border-[#173D32]/10 flex items-center gap-3">
-            <img
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              className="w-10 h-10 rounded-xl object-cover border border-white shadow-sm shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#102820] truncate">{currentUser.name}</p>
-              <p className="text-[10px] text-[#7E8980] truncate">{currentUser.designation}</p>
-            </div>
-          </div>
-
-          {/* Nav Items */}
-          <nav className="flex-1 px-3 space-y-1 overflow-y-auto py-2">
-            {currentNav.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                    isActive
-                      ? 'bg-[#173D32] text-[#EAE9DF] shadow-sm'
-                      : 'text-[#34443A] hover:bg-[#F7F8F5] hover:text-[#173D32]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon
-                      className={`w-4 h-4 ${
-                        isActive ? 'text-[#C7F36B]' : 'text-[#7E8980]'
-                      }`}
-                    />
-                    <span>{item.name}</span>
-                  </div>
-                  {item.badge && (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
-                        isActive
-                          ? 'bg-[#C7F36B] text-[#102820]'
-                          : 'bg-[#173D32]/10 text-[#173D32]'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Bottom Actions */}
-          <div className="p-4 border-t border-[#E6EBE5] space-y-2">
-            <button
-              type="button"
-              onClick={handleToggleClock}
-              className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-                clockedIn
-                  ? 'bg-[#34785B]/15 text-[#34785B] border border-[#34785B]/30 hover:bg-[#34785B]/25'
-                  : 'bg-[#173D32] text-[#EAE9DF] hover:bg-[#102820]'
-              }`}
-            >
-              <Clock3 className="w-3.5 h-3.5" />
-              <span>{clockedIn ? 'Clocked In (Active)' : 'Quick Clock In'}</span>
-            </button>
-            {clockMessage && (
-              <p className="text-[10px] text-center text-[#34785B] font-medium">{clockMessage}</p>
-            )}
-
-            <Link
-              to="/login"
-              className="w-full py-2 px-3 rounded-xl text-xs font-medium text-[#7E8980] hover:text-[#C24141] hover:bg-[#C24141]/5 flex items-center justify-center gap-2 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </Link>
-          </div>
+          <SidebarContent />
         </aside>
 
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden flex">
-            <div
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-              onClick={() => setSidebarOpen(false)}
-            />
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setSidebarOpen(false)} />
             <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10">
               <div className="p-4 border-b border-[#E6EBE5] flex items-center justify-between">
                 <span className="font-serif-display text-xl font-bold text-[#102820]">StaffSync</span>
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-1.5 rounded-lg text-[#7E8980] hover:text-[#102820]"
-                >
+                <button type="button" onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg text-[#7E8980] hover:text-[#102820]">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
-              <nav className="flex-1 px-3 space-y-1 py-4 overflow-y-auto">
-                {currentNav.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      to={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
-                        isActive
-                          ? 'bg-[#173D32] text-[#EAE9DF]'
-                          : 'text-[#34443A] hover:bg-[#F7F8F5]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-4 h-4" />
-                        <span>{item.name}</span>
-                      </div>
-                      {item.badge && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-[#173D32]/10 text-[#173D32]">
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-
-              <div className="p-4 border-t border-[#E6EBE5]">
-                <Link
-                  to="/login"
-                  className="w-full py-2 text-xs font-medium text-[#C24141] flex items-center justify-center gap-2"
-                >
-                  <LogOut className="w-4 h-4" /> Sign Out
-                </Link>
-              </div>
+              <SidebarContent />
             </div>
           </div>
         )}
@@ -351,23 +277,21 @@ export default function DashboardLayout({
               </button>
 
               <div className="hidden sm:block">
-                <h1 className="font-serif-display text-xl sm:text-2xl text-[#102820] leading-none">
-                  {pageTitle}
-                </h1>
+                <h1 className="font-serif-display text-xl sm:text-2xl text-[#102820] leading-none">{pageTitle}</h1>
                 <p className="text-[11px] text-[#7E8980] mt-0.5">
-                  SyncWorks Global • {currentUser.department}
+                  StaffSync • {currentUser?.department || activeRole}
                 </p>
               </div>
             </div>
 
             {/* Right Top Header Controls */}
             <div className="flex items-center gap-3">
-              {/* Active Role Badge (Static, no mock demo switcher) */}
+              {/* Active Role Badge */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#173D32]/20 bg-[#F7F8F5] text-xs font-semibold text-[#102820]">
                 <span className="w-2 h-2 rounded-full bg-[#173D32]" />
                 <span className="hidden sm:inline text-[#7E8980]">Role:</span>
                 <span className="uppercase text-[11px] tracking-wide text-[#173D32] font-bold">
-                  {currentUser.role || activeRole}
+                  {currentUser?.role || activeRole}
                 </span>
               </div>
 
@@ -393,7 +317,7 @@ export default function DashboardLayout({
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-xs text-[#102820]">Notifications</span>
                         {unreadCount > 0 && (
-                          <span className="px-1.5 py-0.2 bg-[#173D32] text-[#EAE9DF] rounded text-[10px] font-bold">
+                          <span className="px-1.5 py-0.5 bg-[#173D32] text-[#EAE9DF] rounded text-[10px] font-bold">
                             {unreadCount} new
                           </span>
                         )}
@@ -422,9 +346,7 @@ export default function DashboardLayout({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <p className="font-semibold">{item.title}</p>
-                              <span className="text-[10px] text-[#7E8980] whitespace-nowrap">
-                                {item.timestamp}
-                              </span>
+                              <span className="text-[10px] text-[#7E8980] whitespace-nowrap">{item.timestamp}</span>
                             </div>
                             <p className="text-[11px] mt-0.5 text-[#34443A]">{item.message}</p>
                           </div>
@@ -440,11 +362,7 @@ export default function DashboardLayout({
                 to={activeRole === 'employee' ? '/employee/profile' : `/${activeRole}/settings`}
                 className="flex items-center gap-2 p-1 rounded-xl hover:bg-[#F7F8F5] transition-colors"
               >
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-8 h-8 rounded-lg object-cover border border-[#E6EBE5]"
-                />
+                <img src={avatarUrl} alt={currentUser?.name || 'User'} className="w-8 h-8 rounded-lg object-cover border border-[#E6EBE5]" />
               </Link>
             </div>
           </header>

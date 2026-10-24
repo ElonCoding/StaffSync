@@ -1,19 +1,16 @@
-
 import React, { useState } from 'react';
 import {
   Settings,
   Building,
   Calendar,
   Shield,
-  RefreshCw,
   CheckCircle2,
   Clock,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
 
 export default function HrSettingsPage() {
-  const [orgName, setOrgName] = useState('SyncWorks Global, Inc.');
+  const [orgName, setOrgName] = useState('StaffSync Enterprise HR');
   const [hqLocation, setHqLocation] = useState('San Francisco, CA');
   const [standardHours, setStandardHours] = useState('8.0');
   const [annualLeaveQuota, setAnnualLeaveQuota] = useState('20');
@@ -26,18 +23,11 @@ export default function HrSettingsPage() {
     setTimeout(() => setSavedNotice(false), 3000);
   };
 
-  const handleReset = () => {
-    if (confirm('Reset prototype data back to fresh demo seed?')) {
-      MockService.resetToDefaults();
-      window.location.reload();
-    }
-  };
-
   return (
     <DashboardLayout activeRole="hr" pageTitle="HR System & Policy Settings">
       <div className="max-w-4xl">
         <div className="mb-6">
-          <h2 className="font-serif-display text-2xl text-[#102820]">Organization Policies & Settings</h2>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Organization Policies &amp; Settings</h2>
           <p className="text-xs text-[#7E8980]">
             Configure workplace hours, leave balances, and organizational defaults
           </p>
@@ -46,7 +36,7 @@ export default function HrSettingsPage() {
         {savedNotice && (
           <div className="mb-6 p-3 rounded-xl bg-[#34785B]/15 border border-[#34785B]/30 text-xs text-[#34785B] flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Settings saved successfully in local prototype storage.</span>
+            <span>Policy configurations updated successfully.</span>
           </div>
         )}
 
@@ -84,7 +74,7 @@ export default function HrSettingsPage() {
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E6EBE5] shadow-xs">
             <div className="flex items-center gap-2.5 pb-4 border-b border-[#E6EBE5] mb-5">
               <Calendar className="w-5 h-5 text-[#173D32]" />
-              <h3 className="font-serif-display text-lg text-[#102820]">Leave Quotas & Workday Norms</h3>
+              <h3 className="font-serif-display text-lg text-[#102820]">Leave Quotas &amp; Workday Norms</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -134,26 +124,6 @@ export default function HrSettingsPage() {
             </button>
           </div>
         </form>
-
-        {/* Prototype Reset Box */}
-        <div className="mt-8 bg-white rounded-3xl p-6 sm:p-8 border border-[#C24141]/20 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-serif-display text-base text-[#102820]">Reset Prototype Storage</h4>
-              <p className="text-xs text-[#7E8980]">
-                Restore employee records, leave applications, and attendance logs back to fresh demo defaults.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-4 py-2 rounded-xl border border-[#C24141]/30 text-[#C24141] hover:bg-[#C24141]/10 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reset State</span>
-            </button>
-          </div>
-        </div>
       </div>
     </DashboardLayout>
   );

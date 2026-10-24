@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Megaphone,
@@ -8,10 +7,8 @@ import {
   Calendar,
   Users,
   Search,
-  CheckCircle2,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
 import { ApiClient } from '../../../services/apiClient.js';
 import { Announcement } from '../../../lib/types';
 import CreateAnnouncementModal from '../../../components/modals/CreateAnnouncementModal';
@@ -21,36 +18,33 @@ export default function HrAnnouncementsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filterPriority, setFilterPriority] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       const res = await ApiClient.getAnnouncements();
-      const serverAnc = res.data || res.announcements;
-      if (Array.isArray(serverAnc) && serverAnc.length > 0) {
-        setAnnouncements(serverAnc);
-        return;
-      }
-    } catch {
-      // fallback
+      const serverAnc = res?.data || res?.announcements || [];
+      setAnnouncements(Array.isArray(serverAnc) ? serverAnc : []);
+    } catch (err) {
+      console.error('Failed to load announcements:', err);
+      setAnnouncements([]);
+    } finally {
+      setLoading(false);
     }
-    setAnnouncements(MockService.getAnnouncements());
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this announcement?')) {
       try {
         await ApiClient.deleteAnnouncement(id);
+        await loadData();
       } catch (err) {
-        console.warn('Delete fallback:', err);
+        console.error('Failed to delete announcement:', err);
       }
-      MockService.deleteAnnouncement(id);
-      loadData();
     }
   };
 
@@ -58,9 +52,9 @@ export default function HrAnnouncementsPage() {
     const matchesPriority = filterPriority === 'All' || a.priority === filterPriority;
     const query = searchQuery.toLowerCase();
     const matchesSearch =
-      a.title.toLowerCase().includes(query) ||
-      a.content.toLowerCase().includes(query) ||
-      a.authorName.toLowerCase().includes(query);
+      (a.title || '').toLowerCase().includes(query) ||
+      (a.content || '').toLowerCase().includes(query) ||
+      (a.authorName || '').toLowerCase().includes(query);
     return matchesPriority && matchesSearch;
   });
 
@@ -115,14 +109,18 @@ export default function HrAnnouncementsPage() {
 
       {/* Announcements List Grid */}
       <div className="space-y-4">
-        {filtered.length === 0 ? (
+        {loading ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-[#E6EBE5] text-xs text-[#7E8980]">
-            No announcements match the selected criteria.
+            Loading bulletins from database...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-[#E6EBE5] text-xs text-[#7E8980]">
+            No announcements found in the database. Click &quot;Publish New Bulletin&quot; to create one.
           </div>
         ) : (
           filtered.map((item) => (
             <div
-              key={item.id}
+              key={(item as any)._id || item.id}
               className={`p-6 rounded-3xl border transition-all ${
                 item.pinned
                   ? 'bg-white border-[#173D32]/30 shadow-sm ring-1 ring-[#173D32]/10'
@@ -160,7 +158,7 @@ export default function HrAnnouncementsPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => handleDelete((item as any)._id || item.id)}
                     className="p-1.5 rounded-lg text-[#7E8980] hover:text-[#C24141] hover:bg-[#C24141]/10 transition-colors"
                     title="Delete Announcement"
                   >

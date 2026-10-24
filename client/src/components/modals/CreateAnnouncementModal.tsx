@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { X, Megaphone, CheckCircle2 } from 'lucide-react';
 import { Announcement, AnnouncementPriority } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
 
 interface CreateAnnouncementModalProps {
@@ -26,38 +25,36 @@ export default function CreateAnnouncementModal({
   const [audience, setAudience] = useState('All Employees');
   const [pinned, setPinned] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
-
-  const currentUser = MockService.getCurrentUser() || {};
-  const effectiveAuthorName = authorName || currentUser.name || 'Leadership';
-  const effectiveAuthorRole = authorRole || (currentUser.role === 'hr' ? 'Head of People Operations' : 'Leadership');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
-
+    setError('');
     setIsSubmitting(true);
+
     const payload = {
       title: title.trim(),
       content: content.trim(),
-      authorName: effectiveAuthorName,
-      authorRole: effectiveAuthorRole,
+      authorName: authorName || 'Leadership',
+      authorRole: authorRole || 'Management',
       priority,
       audience,
       pinned,
     };
 
     try {
-      await ApiClient.createAnnouncement(payload);
-    } catch (err) {
-      console.warn('API announcement fallback:', err);
+      const res = await ApiClient.createAnnouncement(payload);
+      const newAnc = res?.announcement || res?.data || res;
+      setIsSubmitting(false);
+      onSuccess(newAnc);
+      onClose();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setError(err?.data?.message || err?.message || 'Failed to publish announcement.');
     }
-
-    const newAnc = MockService.createAnnouncement(payload);
-    setIsSubmitting(false);
-    onSuccess(newAnc);
-    onClose();
   };
 
   return (
@@ -116,7 +113,7 @@ export default function CreateAnnouncementModal({
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32] bg-white"
               >
                 <option value="All Employees">All Employees</option>
-                <option value="Engineering & Product">Engineering & Product</option>
+                <option value="Engineering & Product">Engineering &amp; Product</option>
                 <option value="People Operations">People Operations</option>
                 <option value="Leadership">Leadership Only</option>
               </select>
@@ -148,6 +145,12 @@ export default function CreateAnnouncementModal({
             </label>
           </div>
 
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E6EBE5]">
             <button
               type="button"
@@ -158,10 +161,11 @@ export default function CreateAnnouncementModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#C7F36B]" />
-              <span>Publish Bulletin</span>
+              <span>{isSubmitting ? 'Publishing…' : 'Publish Bulletin'}</span>
             </button>
           </div>
         </form>

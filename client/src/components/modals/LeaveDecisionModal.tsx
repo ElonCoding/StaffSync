@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { X, Check, AlertOctagon, CheckCircle2 } from 'lucide-react';
 import { LeaveRequest, LeaveStatus } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
 
 interface LeaveDecisionModalProps {
@@ -23,35 +22,29 @@ export default function LeaveDecisionModal({
   const [decision, setDecision] = useState<LeaveStatus>('Approved');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen || !request) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (decision === 'Rejected' && !rejectionReason.trim()) return;
-
+    setError('');
     setIsSubmitting(true);
+
     try {
-      await ApiClient.updateLeaveStatus(
+      const res = await ApiClient.updateLeaveStatus(
         (request as any)._id || request.id,
         decision,
         decision === 'Rejected' ? rejectionReason : undefined
       );
-    } catch (err) {
-      console.warn('API leave review fallback:', err);
-    }
-
-    const res = MockService.reviewLeave(
-      request.id,
-      decision,
-      reviewerName,
-      decision === 'Rejected' ? rejectionReason : undefined
-    );
-
-    setIsSubmitting(false);
-    if (res) {
-      onDecision(res);
+      const updated = res?.leave || res?.data || { ...request, status: decision, reviewedBy: reviewerName };
+      setIsSubmitting(false);
+      onDecision(updated as LeaveRequest);
       onClose();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setError(err?.data?.message || err?.message || 'Failed to update leave status.');
     }
   };
 
@@ -141,6 +134,12 @@ export default function LeaveDecisionModal({
             </div>
           )}
 
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E6EBE5]">
             <button
               type="button"
@@ -151,10 +150,11 @@ export default function LeaveDecisionModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#C7F36B]" />
-              <span>Confirm Decision</span>
+              <span>{isSubmitting ? 'Saving…' : 'Confirm Decision'}</span>
             </button>
           </div>
         </form>

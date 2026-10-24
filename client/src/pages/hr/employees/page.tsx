@@ -17,7 +17,6 @@ import {
   X,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
 import { ApiClient } from '../../../services/apiClient.js';
 import { Employee, EmploymentStatus } from '../../../lib/types';
 import AddEmployeeModal from '../../../components/modals/AddEmployeeModal';
@@ -37,31 +36,26 @@ export default function HrEmployeesPage() {
   const loadData = async () => {
     try {
       const res = await ApiClient.getEmployees();
-      const serverEmps = res.data || res.employees;
-      if (Array.isArray(serverEmps) && serverEmps.length > 0) {
-        setEmployees(serverEmps);
-        return;
-      }
-    } catch {
-      // fallback
+      const serverEmps = res?.data || res?.employees || [];
+      setEmployees(Array.isArray(serverEmps) ? serverEmps : []);
+    } catch (err) {
+      console.error('Failed to load employees:', err);
+      setEmployees([]);
     }
-    setEmployees(MockService.getEmployees());
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
   // Filter logic
   const filteredEmployees = employees.filter((emp) => {
     const query = searchQuery.toLowerCase();
     const matchesSearch =
-      emp.name.toLowerCase().includes(query) ||
-      emp.email.toLowerCase().includes(query) ||
-      emp.employeeId.toLowerCase().includes(query) ||
-      emp.designation.toLowerCase().includes(query);
+      (emp.name || '').toLowerCase().includes(query) ||
+      (emp.email || '').toLowerCase().includes(query) ||
+      (emp.employeeId || '').toLowerCase().includes(query) ||
+      (emp.designation || '').toLowerCase().includes(query);
 
     const matchesDept = selectedDepartment === 'All' || emp.department === selectedDepartment;
     const matchesStatus = selectedStatus === 'All' || emp.status === selectedStatus;
@@ -69,11 +63,17 @@ export default function HrEmployeesPage() {
     return matchesSearch && matchesDept && matchesStatus;
   });
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove ${name} from the directory?`)) {
-      MockService.deleteEmployee(id);
-      loadData();
-      if (selectedEmployee?.id === id) setSelectedEmployee(null);
+      try {
+        await ApiClient.deleteEmployee(id);
+        await loadData();
+        if (selectedEmployee && ((selectedEmployee as any)._id === id || selectedEmployee.id === id)) {
+          setSelectedEmployee(null);
+        }
+      } catch (err) {
+        console.error('Failed to delete employee:', err);
+      }
     }
   };
 
@@ -91,14 +91,19 @@ export default function HrEmployeesPage() {
     });
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployee) return;
 
-    MockService.updateEmployee(selectedEmployee.id, editFormData);
-    loadData();
-    setSelectedEmployee(null);
-    setIsEditMode(false);
+    try {
+      const targetId = (selectedEmployee as any)._id || selectedEmployee.id;
+      await ApiClient.updateEmployee(targetId, editFormData);
+      await loadData();
+      setSelectedEmployee(null);
+      setIsEditMode(false);
+    } catch (err) {
+      console.error('Failed to update employee:', err);
+    }
   };
 
   const departments = ['All', 'Engineering', 'Product & Design', 'People Operations', 'Marketing', 'Finance & Legal'];

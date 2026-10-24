@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Users,
@@ -11,40 +10,44 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Employee } from '../../../lib/types';
 
 export default function ManagerTeamPage() {
   const [teamMembers, setTeamMembers] = useState<Employee[]>([]);
   const [selectedMember, setSelectedMember] = useState<Employee | null>(null);
   const [oneOnOneNote, setOneOnOneNote] = useState('');
-  const [notesHistory, setNotesHistory] = useState<Record<string, string[]>>({
-    'emp-03': [
-      '2026-10-14: Reviewed design token taxonomy. Elena demonstrated great leadership on WCAG 2.2 color contrast.',
-      '2026-09-28: Quarterly goals aligned on design system release v2.0.',
-    ],
-  });
+  const [notesHistory, setNotesHistory] = useState<Record<string, string[]>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const allEmps = MockService.getEmployees();
-    const team = allEmps.filter(
-      (e) => e.managerId === 'emp-02' || e.department === 'Engineering' || e.department === 'Product & Design'
-    );
-    setTeamMembers(team);
-    if (team.length > 0) setSelectedMember(team[0]);
+    async function fetchTeam() {
+      try {
+        const res = await ApiClient.getEmployees();
+        const emps: Employee[] = res?.employees || res?.data || [];
+        setTeamMembers(emps);
+        if (emps.length > 0) setSelectedMember(emps[0]);
+      } catch (err) {
+        console.error('Failed to load team:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTeam();
   }, []);
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMember || !oneOnOneNote.trim()) return;
 
-    const currentNotes = notesHistory[selectedMember.id] || [];
+    const memberId = (selectedMember as any)._id || selectedMember.id;
+    const currentNotes = notesHistory[memberId] || [];
     const dateStr = new Date().toISOString().split('T')[0];
     const newEntry = `${dateStr}: ${oneOnOneNote.trim()}`;
 
     setNotesHistory({
       ...notesHistory,
-      [selectedMember.id]: [newEntry, ...currentNotes],
+      [memberId]: [newEntry, ...currentNotes],
     });
     setOneOnOneNote('');
   };
@@ -61,45 +64,60 @@ export default function ManagerTeamPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Team Members List (5 cols) */}
         <div className="lg:col-span-5 space-y-3">
-          {teamMembers.map((emp) => {
-            const isSelected = selectedMember?.id === emp.id;
-            return (
-              <div
-                key={emp.id}
-                onClick={() => setSelectedMember(emp)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                  isSelected
-                    ? 'bg-[#173D32] text-[#EAE9DF] border-[#173D32] shadow-md'
-                    : 'bg-white border-[#E6EBE5] text-[#102820] hover:border-[#173D32]/30'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={emp.avatar}
-                    alt={emp.name}
-                    className="w-11 h-11 rounded-xl object-cover border border-[#E6EBE5]"
-                  />
-                  <div>
-                    <h4 className="font-bold text-sm">{emp.name}</h4>
-                    <p className={`text-xs ${isSelected ? 'text-[#D7D8CE]' : 'text-[#7E8980]'}`}>
-                      {emp.designation}
-                    </p>
-                    <span
-                      className={`text-[10px] font-semibold mt-1 inline-block ${
-                        isSelected ? 'text-[#C7F36B]' : 'text-[#173D32]'
-                      }`}
-                    >
-                      {emp.department} • {emp.status}
-                    </span>
+          {loading ? (
+            <p className="text-xs text-[#7E8980] py-6 text-center">Loading team directory...</p>
+          ) : teamMembers.length === 0 ? (
+            <div className="p-6 bg-white rounded-2xl border border-[#E6EBE5] text-center text-xs text-[#7E8980]">
+              No employees registered in the database yet.
+            </div>
+          ) : (
+            teamMembers.map((emp) => {
+              const empKey = (emp as any)._id || emp.id;
+              const isSelected = ((selectedMember as any)?._id || selectedMember?.id) === empKey;
+              return (
+                <div
+                  key={empKey}
+                  onClick={() => setSelectedMember(emp)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    isSelected
+                      ? 'bg-[#173D32] text-[#EAE9DF] border-[#173D32] shadow-md'
+                      : 'bg-white border-[#E6EBE5] text-[#102820] hover:border-[#173D32]/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {emp.avatar ? (
+                      <img
+                        src={emp.avatar}
+                        alt={emp.name}
+                        className="w-11 h-11 rounded-xl object-cover border border-[#E6EBE5]"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-xs shrink-0">
+                        {emp.name?.slice(0, 2).toUpperCase() || 'EM'}
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="font-bold text-sm">{emp.name}</h4>
+                      <p className={`text-xs ${isSelected ? 'text-[#D7D8CE]' : 'text-[#7E8980]'}`}>
+                        {emp.designation || 'Staff'}
+                      </p>
+                      <span
+                        className={`text-[10px] font-semibold mt-1 inline-block ${
+                          isSelected ? 'text-[#C7F36B]' : 'text-[#173D32]'
+                        }`}
+                      >
+                        {emp.department || 'General'} • {emp.status || 'Active'}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <ChevronRight
-                  className={`w-4 h-4 ${isSelected ? 'text-[#C7F36B]' : 'text-[#7E8980]'}`}
-                />
-              </div>
-            );
-          })}
+                  <ChevronRight
+                    className={`w-4 h-4 ${isSelected ? 'text-[#C7F36B]' : 'text-[#7E8980]'}`}
+                  />
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Selected Member Detail & 1-on-1 Workspace (7 cols) */}
@@ -109,18 +127,24 @@ export default function ManagerTeamPage() {
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-[#E6EBE5]">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={selectedMember.avatar}
-                    alt={selectedMember.name}
-                    className="w-14 h-14 rounded-2xl object-cover border border-[#E6EBE5]"
-                  />
+                  {selectedMember.avatar ? (
+                    <img
+                      src={selectedMember.avatar}
+                      alt={selectedMember.name}
+                      className="w-14 h-14 rounded-2xl object-cover border border-[#E6EBE5]"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-base">
+                      {selectedMember.name?.slice(0, 2).toUpperCase() || 'EM'}
+                    </div>
+                  )}
                   <div>
                     <h3 className="font-serif-display text-2xl text-[#102820]">
                       {selectedMember.name}
                     </h3>
                     <p className="text-xs text-[#7E8980]">{selectedMember.designation}</p>
                     <span className="font-mono text-[10px] text-[#173D32] bg-[#173D32]/10 px-2 py-0.5 rounded font-semibold inline-block mt-1">
-                      {selectedMember.employeeId}
+                      {selectedMember.employeeId || (selectedMember as any)._id}
                     </span>
                   </div>
                 </div>
@@ -130,7 +154,7 @@ export default function ManagerTeamPage() {
                     Remaining Leaves
                   </span>
                   <span className="font-bold text-lg text-[#173D32]">
-                    {selectedMember.leaveBalances.totalRemaining} Days
+                    {selectedMember.leaveBalances?.totalRemaining ?? 30} Days
                   </span>
                 </div>
               </div>
@@ -145,17 +169,17 @@ export default function ManagerTeamPage() {
                 </div>
                 <div className="p-3 rounded-xl bg-[#F7F8F5] border border-[#E6EBE5]">
                   <span className="text-[#7E8980] block mb-0.5">Location</span>
-                  <span className="font-semibold text-[#102820]">{selectedMember.location}</span>
+                  <span className="font-semibold text-[#102820]">{selectedMember.location || 'Remote'}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#F7F8F5] border border-[#E6EBE5]">
                   <span className="text-[#7E8980] block mb-0.5">Joining Date</span>
-                  <span className="font-semibold text-[#102820]">{selectedMember.joiningDate}</span>
+                  <span className="font-semibold text-[#102820]">{selectedMember.joiningDate || '—'}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#F7F8F5] border border-[#E6EBE5]">
                   <span className="text-[#7E8980] block mb-0.5">Annual / Sick / Casual</span>
                   <span className="font-semibold text-[#102820]">
-                    {selectedMember.leaveBalances.annual} / {selectedMember.leaveBalances.sick} /{' '}
-                    {selectedMember.leaveBalances.casual}
+                    {selectedMember.leaveBalances?.annual ?? 15} / {selectedMember.leaveBalances?.sick ?? 10} /{' '}
+                    {selectedMember.leaveBalances?.casual ?? 5}
                   </span>
                 </div>
               </div>
@@ -164,7 +188,7 @@ export default function ManagerTeamPage() {
               <div>
                 <h4 className="font-serif-display text-base text-[#102820] mb-2 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-[#173D32]" />
-                  <span>1-on-1 Performance & Mentorship Notes</span>
+                  <span>1-on-1 Performance &amp; Mentorship Notes</span>
                 </h4>
 
                 <form onSubmit={handleAddNote} className="space-y-2 mb-4">
@@ -187,12 +211,12 @@ export default function ManagerTeamPage() {
                 </form>
 
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {(notesHistory[selectedMember.id] || []).length === 0 ? (
+                  {((notesHistory[(selectedMember as any)._id || selectedMember.id]) || []).length === 0 ? (
                     <p className="text-xs text-[#7E8980] italic">
                       No 1-on-1 notes recorded yet for this team member.
                     </p>
                   ) : (
-                    (notesHistory[selectedMember.id] || []).map((note, i) => (
+                    ((notesHistory[(selectedMember as any)._id || selectedMember.id]) || []).map((note, i) => (
                       <div
                         key={i}
                         className="p-3 rounded-xl bg-[#F7F8F5] border border-[#E6EBE5] text-xs text-[#34443A] leading-relaxed"

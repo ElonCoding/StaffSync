@@ -1,4 +1,4 @@
-import { MockService } from './mockService.js';
+// API client for StaffSync — real backend only, no mocks.
 
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
@@ -20,80 +20,49 @@ export function setAuthToken(token) {
   }
 }
 
-async function fetchWithFallback(url, options = {}, mockFallbackFn) {
-  try {
-    const token = getAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    };
+async function apiFetch(url, options = {}) {
+  const token = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const res = await fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+  const res = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
 
-    if (res.ok) {
-      return await res.json();
-    }
-    // If backend returns 401/404/500, fallback to mock if provided
-    return mockFallbackFn ? await mockFallbackFn() : await res.json();
-  } catch (err) {
-    // Backend offline or network timeout, gracefully return mock
-    if (mockFallbackFn) {
-      return await mockFallbackFn();
-    }
+  if (!res.ok) {
+    const err = new Error('API request failed');
+    err.status = res.status;
+    try { err.data = await res.json(); } catch (_) {}
     throw err;
   }
+  return await res.json();
 }
 
 export const ApiClient = {
   // Auth
   async login(credentials) {
-    const res = await fetchWithFallback(
-      '/auth/login',
-      { method: 'POST', body: JSON.stringify(credentials) },
-      async () => {
-        const role = credentials.role || (credentials.email?.includes('mgr') ? 'manager' : credentials.email?.includes('emp') ? 'employee' : 'hr');
-        const user = MockService.setCurrentUser(role);
-        setAuthToken('mock-jwt-token-' + role);
-        return { success: true, token: 'mock-jwt-token-' + role, user };
-      }
-    );
-    if (res?.token) {
-      setAuthToken(res.token);
-    }
+    const res = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
+    if (res?.token) setAuthToken(res.token);
     return res;
   },
 
   async register(data) {
-    const res = await fetchWithFallback(
-      '/auth/register',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const role = (data.role || 'employee').toLowerCase();
-        const user = MockService.setCurrentUser(role);
-        setAuthToken('mock-jwt-token-' + role);
-        return { success: true, token: 'mock-jwt-token-' + role, user };
-      }
-    );
-    if (res?.token) {
-      setAuthToken(res.token);
-    }
+    const res = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+    if (res?.token) setAuthToken(res.token);
     return res;
   },
 
   async getMe() {
-    return fetchWithFallback('/auth/me', {}, async () => {
-      const user = MockService.getCurrentUser();
-      return { success: true, user };
-    });
+    return await apiFetch('/auth/me');
   },
 
   logout() {
@@ -103,224 +72,109 @@ export const ApiClient = {
   // Employees
   async getEmployees(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return fetchWithFallback(`/employees${query ? '?' + query : ''}`, {}, async () => {
-      let employees = MockService.getEmployees();
-      if (params.department) {
-        employees = employees.filter((e) => e.department.toLowerCase() === params.department.toLowerCase());
-      }
-      if (params.search) {
-        const q = params.search.toLowerCase();
-        employees = employees.filter((e) => e.name.toLowerCase().includes(q) || e.employeeId.toLowerCase().includes(q));
-      }
-      return { success: true, employees };
-    });
+    return await apiFetch(`/employees${query ? '?' + query : ''}`);
   },
 
   async getEmployee(id) {
-    return fetchWithFallback(`/employees/${id}`, {}, async () => {
-      const employee = MockService.getEmployeeById(id);
-      return { success: !!employee, employee };
-    });
+    return await apiFetch(`/employees/${id}`);
   },
 
   async createEmployee(data) {
-    return fetchWithFallback(
-      '/employees',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const employee = MockService.addEmployee(data);
-        return { success: true, employee };
-      }
-    );
+    return await apiFetch('/employees', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async updateEmployee(id, data) {
-    return fetchWithFallback(
-      `/employees/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      async () => {
-        const employee = MockService.updateEmployee(id, data);
-        return { success: true, employee };
-      }
-    );
+    return await apiFetch(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
 
   async deleteEmployee(id) {
-    return fetchWithFallback(`/employees/${id}`, { method: 'DELETE' }, async () => {
-      const ok = MockService.deleteEmployee(id);
-      return { success: ok };
-    });
+    return await apiFetch(`/employees/${id}`, { method: 'DELETE' });
   },
 
   // Leaves
   async getLeaves(params = {}) {
     const query = new URLSearchParams(params).toString();
-    return fetchWithFallback(`/leaves${query ? '?' + query : ''}`, {}, async () => {
-      let leaves = MockService.getLeaveRequests();
-      if (params.status) {
-        leaves = leaves.filter((l) => l.status.toLowerCase() === params.status.toLowerCase());
-      }
-      if (params.employeeId) {
-        leaves = leaves.filter((l) => l.employeeId === params.employeeId);
-      }
-      return { success: true, leaves };
-    });
+    return await apiFetch(`/leaves${query ? '?' + query : ''}`);
   },
 
   async applyLeave(data) {
-    const res = await fetchWithFallback(
-      '/leaves',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const leave = MockService.applyLeave(data);
-        return { success: true, leave, data: leave };
-      }
-    );
-    const leaveItem = res?.data || res?.leave;
-    if (leaveItem) {
-      MockService.applyLeave(leaveItem);
-    }
-    return res;
+    return await apiFetch('/leaves', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async updateLeaveStatus(id, status, notes = '') {
-    return fetchWithFallback(
-      `/leaves/${id}/status`,
-      { method: 'PUT', body: JSON.stringify({ status, reviewerNotes: notes }) },
-      async () => {
-        const currentUser = MockService.getCurrentUser();
-        const leave = MockService.reviewLeave(id, status, currentUser.name, notes);
-        return { success: true, leave };
-      }
-    );
+    return await apiFetch(`/leaves/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, reviewerNotes: notes }) });
+  },
+
+  async deleteLeave(id) {
+    return await apiFetch(`/leaves/${id}`, { method: 'DELETE' });
   },
 
   // Attendance
-  async getAttendance(date) {
-    const query = date ? `?date=${date}` : '';
-    return fetchWithFallback(`/attendance${query}`, {}, async () => {
-      const attendance = MockService.getAttendance(date);
-      return { success: true, attendance, data: attendance };
-    });
+  async getAttendance(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return await apiFetch(`/attendance${query ? '?' + query : ''}`);
   },
 
   async clockIn(data) {
-    const res = await fetchWithFallback(
-      '/attendance/clock-in',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const record = MockService.clockIn(data.employeeId, data.employeeName, data.department);
-        return { success: true, record, data: record };
-      }
-    );
-    const record = res?.data || res?.record;
-    if (record) {
-      MockService.clockIn(record.employeeId, record.employeeName, record.department);
-    }
-    return res;
+    return await apiFetch('/attendance/clock-in', { method: 'POST', body: JSON.stringify(data) });
   },
 
   async clockOut(data) {
-    const res = await fetchWithFallback(
-      '/attendance/clock-out',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const record = MockService.clockOut(data.employeeId);
-        return { success: true, record, data: record };
-      }
-    );
-    const record = res?.data || res?.record;
-    if (record) {
-      MockService.clockOut(record.employeeId);
-    }
-    return res;
+    return await apiFetch('/attendance/clock-out', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  async updateAttendanceStatus(id, status, notes = '') {
+    return await apiFetch(`/attendance/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, notes }) });
   },
 
   // Announcements
   async getAnnouncements() {
-    return fetchWithFallback('/announcements', {}, async () => {
-      const announcements = MockService.getAnnouncements();
-      return { success: true, announcements };
-    });
+    return await apiFetch('/announcements');
   },
 
   async createAnnouncement(data) {
-    const res = await fetchWithFallback(
-      '/announcements',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const announcement = MockService.createAnnouncement(data);
-        return { success: true, announcement, data: announcement };
-      }
-    );
-    const announcement = res?.data || res?.announcement;
-    if (announcement) {
-      MockService.createAnnouncement(announcement);
-    }
-    return res;
+    return await apiFetch('/announcements', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  async updateAnnouncement(id, data) {
+    return await apiFetch(`/announcements/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
 
   async deleteAnnouncement(id) {
-    return fetchWithFallback(`/announcements/${id}`, { method: 'DELETE' }, async () => {
-      const ok = MockService.deleteAnnouncement(id);
-      return { success: ok };
-    });
+    return await apiFetch(`/announcements/${id}`, { method: 'DELETE' });
   },
 
   // Training
   async getTrainingPrograms() {
-    return fetchWithFallback('/training', {}, async () => {
-      const programs = MockService.getTrainingPrograms();
-      return { success: true, programs, data: programs };
-    });
+    return await apiFetch('/training');
   },
 
   async createTrainingProgram(data) {
-    const res = await fetchWithFallback(
-      '/training',
-      { method: 'POST', body: JSON.stringify(data) },
-      async () => {
-        const program = MockService.createTrainingProgram(data);
-        return { success: true, program, data: program };
-      }
-    );
-    const program = res?.data || res?.program;
-    if (program) {
-      MockService.createTrainingProgram(program);
-    }
-    return res;
+    return await apiFetch('/training', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  async updateTrainingProgram(id, data) {
+    return await apiFetch(`/training/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+
+  async deleteTrainingProgram(id) {
+    return await apiFetch(`/training/${id}`, { method: 'DELETE' });
   },
 
   async updateTrainingProgress(programId, employeeId, progressPercent) {
-    return fetchWithFallback(
-      `/training/${programId}/progress`,
-      { method: 'PUT', body: JSON.stringify({ employeeId, progressPercent }) },
-      async () => {
-        const ok = MockService.updateTrainingProgress(programId, employeeId, progressPercent);
-        return { success: ok };
-      }
-    );
+    return await apiFetch(`/training/${programId}/progress`, { method: 'PUT', body: JSON.stringify({ employeeId, progressPercent }) });
   },
 
   // Notifications
   async getNotifications() {
-    return fetchWithFallback('/notifications', {}, async () => {
-      const notifications = MockService.getNotifications();
-      return { success: true, notifications };
-    });
+    return await apiFetch('/notifications');
   },
 
   async markNotificationRead(id) {
-    return fetchWithFallback(`/notifications/${id}/read`, { method: 'PUT' }, async () => {
-      MockService.markNotificationRead(id);
-      return { success: true };
-    });
+    return await apiFetch(`/notifications/${id}/read`, { method: 'PUT' });
   },
 
   async markAllNotificationsRead() {
-    return fetchWithFallback('/notifications/read-all', { method: 'PUT' }, async () => {
-      MockService.markAllNotificationsRead();
-      return { success: true };
-    });
+    return await apiFetch('/notifications/read-all', { method: 'PUT' });
   },
 };

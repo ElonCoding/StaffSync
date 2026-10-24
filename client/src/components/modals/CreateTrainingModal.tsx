@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { X, GraduationCap, CheckCircle2 } from 'lucide-react';
 import { TrainingProgram } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
 
 interface CreateTrainingModalProps {
@@ -18,25 +17,27 @@ export default function CreateTrainingModal({
 }: CreateTrainingModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [instructor, setInstructor] = useState('StaffSync Learning Guild');
+  const [instructor, setInstructor] = useState('');
   const [department, setDepartment] = useState('Product & Engineering');
   const [durationHours, setDurationHours] = useState(10);
   const [modulesCount, setModulesCount] = useState(5);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
-
+    setError('');
     setIsSubmitting(true);
+
     const payload = {
       title: title.trim(),
       description: description.trim(),
-      instructor,
+      instructor: instructor.trim() || 'Internal Training',
       department,
       durationHours,
       modulesCount,
@@ -47,15 +48,15 @@ export default function CreateTrainingModal({
     };
 
     try {
-      await ApiClient.createTrainingProgram(payload);
-    } catch (err) {
-      console.warn('API training creation fallback:', err);
+      const res = await ApiClient.createTrainingProgram(payload);
+      const newProg = res?.program || res?.data || res;
+      setIsSubmitting(false);
+      onSuccess(newProg);
+      onClose();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setError(err?.data?.message || err?.message || 'Failed to create training program.');
     }
-
-    const newProg = MockService.createTrainingProgram(payload);
-    setIsSubmitting(false);
-    onSuccess(newProg);
-    onClose();
   };
 
   return (
@@ -100,8 +101,8 @@ export default function CreateTrainingModal({
                 type="text"
                 value={instructor}
                 onChange={(e) => setInstructor(e.target.value)}
+                placeholder="e.g. Learning Guild"
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
-                required
               />
             </div>
             <div>
@@ -111,7 +112,7 @@ export default function CreateTrainingModal({
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32] bg-white"
               >
-                <option value="Product & Engineering">Product & Engineering</option>
+                <option value="Product & Engineering">Product &amp; Engineering</option>
                 <option value="People Operations">People Operations</option>
                 <option value="Company-Wide">Company-Wide</option>
               </select>
@@ -157,6 +158,12 @@ export default function CreateTrainingModal({
             />
           </div>
 
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E6EBE5]">
             <button
               type="button"
@@ -167,10 +174,11 @@ export default function CreateTrainingModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#C7F36B]" />
-              <span>Launch Curriculum</span>
+              <span>{isSubmitting ? 'Launching…' : 'Launch Curriculum'}</span>
             </button>
           </div>
         </form>

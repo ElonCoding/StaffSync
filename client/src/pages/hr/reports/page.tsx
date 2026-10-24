@@ -1,18 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
-  Download,
   Printer,
   Calendar,
   Users,
   Clock,
   CalendarCheck,
-  TrendingUp,
-  FileText,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Employee, LeaveRequest, AttendanceRecord } from '../../../lib/types';
 
 export default function HrReportsPage() {
@@ -20,24 +16,54 @@ export default function HrReportsPage() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [reportPeriod, setReportPeriod] = useState('October 2026');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setEmployees(MockService.getEmployees());
-    setLeaves(MockService.getLeaveRequests());
-    setAttendance(MockService.getAttendance());
+    async function fetchReportData() {
+      try {
+        const [empRes, leavesRes, attRes] = await Promise.all([
+          ApiClient.getEmployees().catch(() => ({ employees: [] })),
+          ApiClient.getLeaves().catch(() => ({ leaves: [] })),
+          ApiClient.getAttendance().catch(() => ({ attendance: [] })),
+        ]);
+
+        setEmployees(empRes?.employees || empRes?.data || []);
+        setLeaves(leavesRes?.leaves || leavesRes?.data || []);
+        setAttendance(attRes?.attendance || attRes?.data || []);
+      } catch (err) {
+        console.error('Failed to load report data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchReportData();
   }, []);
 
   const totalHeadcount = employees.length;
   const approvedLeaves = leaves.filter((l) => l.status === 'Approved');
-  const totalLeaveDays = approvedLeaves.reduce((acc, l) => acc + l.days, 0);
+  const totalLeaveDays = approvedLeaves.reduce((acc, l) => acc + (l.days || 1), 0);
 
   const presentRecords = attendance.filter((a) => a.status === 'Present' || a.status === 'Late');
   const punctualityRate =
-    attendance.length > 0 ? Math.round((presentRecords.length / attendance.length) * 100) : 95;
+    attendance.length > 0 ? Math.round((presentRecords.length / attendance.length) * 100) : 100;
 
   const handlePrint = () => {
     window.print();
   };
+
+  // Group by department
+  const deptStats: Record<string, { count: number; leaves: number }> = {};
+  employees.forEach((emp) => {
+    const dept = emp.department || 'General';
+    if (!deptStats[dept]) deptStats[dept] = { count: 0, leaves: 0 };
+    deptStats[dept].count += 1;
+  });
+
+  approvedLeaves.forEach((l) => {
+    const dept = l.department || 'General';
+    if (!deptStats[dept]) deptStats[dept] = { count: 0, leaves: 0 };
+    deptStats[dept].leaves += (l.days || 1);
+  });
 
   return (
     <DashboardLayout activeRole="hr" pageTitle="Workforce Analytics & Reports">
@@ -79,7 +105,7 @@ export default function HrReportsPage() {
         </div>
 
         <span className="text-[11px] text-[#7E8980] hidden sm:inline">
-          Data synchronized with current prototype registry
+          Live MongoDB dynamic synchronization
         </span>
       </div>
 
@@ -93,10 +119,10 @@ export default function HrReportsPage() {
             <span className="font-serif-display text-4xl font-bold text-[#102820]">
               {punctualityRate}%
             </span>
-            <span className="text-xs text-[#34785B] font-semibold">▲ 2.1% MoM</span>
+            <span className="text-xs text-[#34785B] font-semibold">Live</span>
           </div>
           <p className="text-xs text-[#7E8980] mt-2">
-            Consistent presence rate across {attendance.length} logged shifts.
+            Across {attendance.length} logged shift record(s).
           </p>
         </div>
 
@@ -111,7 +137,7 @@ export default function HrReportsPage() {
             <span className="text-xs text-[#7E8980]">total days</span>
           </div>
           <p className="text-xs text-[#7E8980] mt-2">
-            Across {approvedLeaves.length} approved applications in this reporting cycle.
+            Across {approvedLeaves.length} approved applications in database.
           </p>
         </div>
 
@@ -123,10 +149,10 @@ export default function HrReportsPage() {
             <span className="font-serif-display text-4xl font-bold text-[#102820]">
               {totalHeadcount}
             </span>
-            <span className="text-xs text-[#34785B] font-semibold">100% active</span>
+            <span className="text-xs text-[#34785B] font-semibold">Active staff</span>
           </div>
           <p className="text-xs text-[#7E8980] mt-2">
-            Zero unresolved disciplinary suspensions or administrative halts.
+            Real registered team members in database.
           </p>
         </div>
       </div>
@@ -140,7 +166,7 @@ export default function HrReportsPage() {
             </div>
             <div>
               <h3 className="font-serif-display text-xl text-[#102820]">
-                SyncWorks Global • Workforce Health Summary
+                StaffSync Enterprise • Workforce Health Summary
               </h3>
               <p className="text-xs text-[#7E8980]">
                 Generated on {new Date().toLocaleDateString()} for period {reportPeriod}
@@ -148,68 +174,46 @@ export default function HrReportsPage() {
             </div>
           </div>
           <span className="px-3 py-1 rounded-md bg-[#173D32]/10 text-[#173D32] text-xs font-bold uppercase tracking-wider">
-            Verified Internal Audit
+            Verified Dynamic Audit
           </span>
         </div>
 
         {/* Breakdown Table */}
         <div>
           <h4 className="font-serif-display text-base text-[#102820] mb-3">
-            Departmental Capacity & Absence Utilization
+            Departmental Capacity &amp; Absence Utilization
           </h4>
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F7F8F5] text-[#7E8980] uppercase font-semibold">
               <tr>
                 <th className="py-2.5 px-4">Department</th>
                 <th className="py-2.5 px-4">Headcount</th>
-                <th className="py-2.5 px-4">Attendance Rate</th>
-                <th className="py-2.5 px-4">Days Off Taken</th>
+                <th className="py-2.5 px-4">Days Off Approved</th>
                 <th className="py-2.5 px-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6EBE5]">
-              <tr>
-                <td className="py-3 px-4 font-semibold text-[#102820]">Engineering</td>
-                <td className="py-3 px-4">4 Members</td>
-                <td className="py-3 px-4 text-[#34785B] font-semibold">97.5%</td>
-                <td className="py-3 px-4">3 Days</td>
-                <td className="py-3 px-4 text-[#34785B]">Optimal</td>
-              </tr>
-              <tr>
-                <td className="py-3 px-4 font-semibold text-[#102820]">Product & Design</td>
-                <td className="py-3 px-4">2 Members</td>
-                <td className="py-3 px-4 text-[#34785B] font-semibold">98.0%</td>
-                <td className="py-3 px-4">0 Days</td>
-                <td className="py-3 px-4 text-[#34785B]">Optimal</td>
-              </tr>
-              <tr>
-                <td className="py-3 px-4 font-semibold text-[#102820]">People Operations</td>
-                <td className="py-3 px-4">2 Members</td>
-                <td className="py-3 px-4 text-[#34785B] font-semibold">100.0%</td>
-                <td className="py-3 px-4">0 Days</td>
-                <td className="py-3 px-4 text-[#34785B]">Optimal</td>
-              </tr>
-              <tr>
-                <td className="py-3 px-4 font-semibold text-[#102820]">Marketing</td>
-                <td className="py-3 px-4">1 Member</td>
-                <td className="py-3 px-4 text-[#B7791F] font-semibold">On Leave</td>
-                <td className="py-3 px-4">5 Days</td>
-                <td className="py-3 px-4 text-[#B7791F]">Approved Absence</td>
-              </tr>
-              <tr>
-                <td className="py-3 px-4 font-semibold text-[#102820]">Finance & Legal</td>
-                <td className="py-3 px-4">1 Member</td>
-                <td className="py-3 px-4 text-[#34785B] font-semibold">99.0%</td>
-                <td className="py-3 px-4">0 Days</td>
-                <td className="py-3 px-4 text-[#34785B]">Optimal</td>
-              </tr>
+              {Object.keys(deptStats).length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-xs text-[#7E8980]">No department records found.</td>
+                </tr>
+              ) : (
+                Object.entries(deptStats).map(([dept, data]) => (
+                  <tr key={dept}>
+                    <td className="py-3 px-4 font-semibold text-[#102820]">{dept}</td>
+                    <td className="py-3 px-4">{data.count} Member(s)</td>
+                    <td className="py-3 px-4">{data.leaves} Days</td>
+                    <td className="py-3 px-4 text-[#34785B] font-medium">Active</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="pt-4 border-t border-[#E6EBE5] text-[11px] text-[#7E8980] flex items-center justify-between">
           <p>This report is formatted for administrative records and operational capacity planning.</p>
-          <p className="font-mono">StaffSync Report Engine • Ref: SS-RPT-2026-Q4</p>
+          <p className="font-mono">StaffSync Report Engine • Live Data</p>
         </div>
       </div>
     </DashboardLayout>

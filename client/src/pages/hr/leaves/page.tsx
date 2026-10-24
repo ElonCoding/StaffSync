@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   CalendarCheck,
@@ -12,9 +11,8 @@ import {
   Clock3,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
 import { ApiClient } from '../../../services/apiClient.js';
-import { LeaveRequest, LeaveStatus } from '../../../lib/types';
+import { LeaveRequest } from '../../../lib/types';
 import LeaveDecisionModal from '../../../components/modals/LeaveDecisionModal';
 
 export default function HrLeavesPage() {
@@ -23,25 +21,27 @@ export default function HrLeavesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [reviewerName, setReviewerName] = useState('HR Administrator');
 
   const loadData = async () => {
     try {
+      const meRes = await ApiClient.getMe().catch(() => null);
+      if (meRes?.user?.name) setReviewerName(meRes.user.name);
+
       const res = await ApiClient.getLeaves();
-      const serverLeaves = res.data || res.leaves;
-      if (Array.isArray(serverLeaves) && serverLeaves.length > 0) {
-        setLeaves(serverLeaves);
-        return;
-      }
-    } catch {
-      // fallback
+      const serverLeaves = res?.data || res?.leaves || [];
+      setLeaves(Array.isArray(serverLeaves) ? serverLeaves : []);
+    } catch (err) {
+      console.error('Failed to load leaves:', err);
+      setLeaves([]);
+    } finally {
+      setLoading(false);
     }
-    setLeaves(MockService.getLeaveRequests());
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
   const handleReviewClick = (req: LeaveRequest) => {
@@ -52,20 +52,22 @@ export default function HrLeavesPage() {
   const handleQuickApprove = async (req: LeaveRequest) => {
     try {
       await ApiClient.updateLeaveStatus((req as any)._id || req.id, 'Approved');
+      await loadData();
     } catch (err) {
-      console.warn('Quick approve API fallback:', err);
+      console.error('Quick approve error:', err);
     }
-    MockService.reviewLeave(req.id, 'Approved', 'Sarah Jenkins (HR)');
-    loadData();
   };
 
   const filteredLeaves = leaves.filter((req) => {
     const matchesStatus = statusFilter === 'All' || req.status === statusFilter;
     const query = searchQuery.toLowerCase();
+    const empName = req.employeeName || '';
+    const dept = req.department || '';
+    const lType = req.leaveType || '';
     const matchesSearch =
-      req.employeeName.toLowerCase().includes(query) ||
-      req.department.toLowerCase().includes(query) ||
-      req.leaveType.toLowerCase().includes(query);
+      empName.toLowerCase().includes(query) ||
+      dept.toLowerCase().includes(query) ||
+      lType.toLowerCase().includes(query);
     return matchesStatus && matchesSearch;
   });
 
@@ -78,7 +80,7 @@ export default function HrLeavesPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif-display text-2xl text-[#102820]">Time-Off & Leave Governance</h2>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Time-Off &amp; Leave Governance</h2>
           <p className="text-xs text-[#7E8980]">
             Audit digital leave requests, inspect reasons, and govern organizational quotas
           </p>
@@ -142,14 +144,20 @@ export default function HrLeavesPage() {
               <tr>
                 <th className="py-3.5 px-6">Employee</th>
                 <th className="py-3.5 px-6">Leave Category</th>
-                <th className="py-3.5 px-6">Period & Duration</th>
+                <th className="py-3.5 px-6">Period &amp; Duration</th>
                 <th className="py-3.5 px-6">Reason Given</th>
                 <th className="py-3.5 px-6">Status</th>
                 <th className="py-3.5 px-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6EBE5]">
-              {filteredLeaves.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
+                    Loading leave requests from database...
+                  </td>
+                </tr>
+              ) : filteredLeaves.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
                     No leave requests found matching this filter.
@@ -157,15 +165,21 @@ export default function HrLeavesPage() {
                 </tr>
               ) : (
                 filteredLeaves.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
+                  <tr key={(req as any)._id || req.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
                     {/* Employee */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={req.employeeAvatar}
-                          alt={req.employeeName}
-                          className="w-9 h-9 rounded-xl object-cover border border-[#E6EBE5]"
-                        />
+                        {req.employeeAvatar ? (
+                          <img
+                            src={req.employeeAvatar}
+                            alt={req.employeeName}
+                            className="w-9 h-9 rounded-xl object-cover border border-[#E6EBE5]"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-xs">
+                            {req.employeeName?.slice(0, 2).toUpperCase() || 'EM'}
+                          </div>
+                        )}
                         <div>
                           <p className="font-bold text-[#102820] text-sm">{req.employeeName}</p>
                           <p className="text-[11px] text-[#7E8980]">{req.department}</p>
@@ -269,7 +283,7 @@ export default function HrLeavesPage() {
           setSelectedRequest(null);
         }}
         onDecision={() => loadData()}
-        reviewerName="Sarah Jenkins (HR Head)"
+        reviewerName={reviewerName}
       />
     </DashboardLayout>
   );

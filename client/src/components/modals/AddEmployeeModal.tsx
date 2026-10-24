@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { X, UserPlus, CheckCircle2 } from 'lucide-react';
 import { Employee, EmploymentStatus } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
 import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
@@ -19,48 +18,44 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
   const [department, setDepartment] = useState('Engineering');
   const [designation, setDesignation] = useState('');
   const [status, setStatus] = useState<EmploymentStatus>('Active');
-  const [managerName, setManagerName] = useState('Marcus Vance');
-  const [location, setLocation] = useState('San Francisco, CA');
+  const [managerName, setManagerName] = useState('');
+  const [location, setLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !designation.trim()) return;
-
+    setError('');
     setIsSubmitting(true);
+
     const payload = {
       name: name.trim(),
       email: email.trim(),
-      phone: phone.trim() || '+1 (555) 000-1122',
+      phone: phone.trim() || undefined,
       role: 'employee' as const,
       department,
       designation: designation.trim(),
       joiningDate: new Date().toISOString().split('T')[0],
       status,
-      managerId: 'emp-02',
-      managerName,
-      location,
+      managerName: managerName.trim() || undefined,
+      location: location.trim() || undefined,
       avatar: getInitialsAvatar(name.trim(), '#173D32', '#C7F36B'),
-      leaveBalances: {
-        annual: 15,
-        sick: 10,
-        casual: 5,
-        totalRemaining: 30,
-      },
+      leaveBalances: { annual: 15, sick: 10, casual: 5, totalRemaining: 30 },
     };
 
     try {
-      await ApiClient.createEmployee(payload);
-    } catch (err) {
-      console.warn('API create employee fallback:', err);
+      const res = await ApiClient.createEmployee(payload);
+      const newEmp = res?.employee || res?.data || res;
+      setIsSubmitting(false);
+      onSuccess(newEmp);
+      onClose();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setError(err?.data?.message || err?.message || 'Failed to create employee.');
     }
-
-    const newEmp = MockService.addEmployee(payload);
-    setIsSubmitting(false);
-    onSuccess(newEmp);
-    onClose();
   };
 
   return (
@@ -104,7 +99,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="c.montgomery@syncworks.io"
+                placeholder="c.montgomery@company.io"
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
                 required
               />
@@ -120,10 +115,10 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32] bg-white"
               >
                 <option value="Engineering">Engineering</option>
-                <option value="Product & Design">Product & Design</option>
+                <option value="Product & Design">Product &amp; Design</option>
                 <option value="People Operations">People Operations</option>
                 <option value="Marketing">Marketing</option>
-                <option value="Finance & Legal">Finance & Legal</option>
+                <option value="Finance & Legal">Finance &amp; Legal</option>
               </select>
             </div>
             <div>
@@ -141,7 +136,17 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#102820] mb-1">Reporting Lead</label>
+              <label className="block text-xs font-semibold text-[#102820] mb-1">Phone (optional)</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 (555) 000-1122"
+                className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#102820] mb-1">Reporting Lead (optional)</label>
               <input
                 type="text"
                 value={managerName}
@@ -150,6 +155,9 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#102820] mb-1">Status</label>
               <select
@@ -162,18 +170,23 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
                 <option value="On Leave">On Leave</option>
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#102820] mb-1">Work Location (optional)</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. San Francisco, CA"
+                className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#102820] mb-1">Work Location</label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. San Francisco, CA (HQ)"
-              className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] text-xs outline-none focus:border-[#173D32]"
-            />
-          </div>
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
 
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E6EBE5]">
             <button
@@ -185,10 +198,11 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#C7F36B]" />
-              <span>Create Employee Record</span>
+              <span>{isSubmitting ? 'Creating…' : 'Create Employee Record'}</span>
             </button>
           </div>
         </form>

@@ -1,51 +1,56 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Search,
   Download,
   Calendar,
-  Filter,
   CheckCircle2,
-  AlertTriangle,
-  Clock3,
-  UserX,
-  FileSpreadsheet,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { AttendanceRecord, AttendanceStatus } from '../../../lib/types';
 
 export default function HrAttendancePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [selectedDate, setSelectedDate] = useState('2026-10-23');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [toastMessage, setToastMessage] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const loadData = () => {
-    setAttendance(MockService.getAttendance());
+  const loadData = async () => {
+    try {
+      const res = await ApiClient.getAttendance(selectedDate ? { date: selectedDate } : {});
+      const records = res?.attendance || res?.data || [];
+      setAttendance(Array.isArray(records) ? records : []);
+    } catch (err) {
+      console.error('Failed to load attendance:', err);
+      setAttendance([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
-  }, []);
+  }, [selectedDate]);
 
-  const handleStatusChange = (id: string, newStatus: AttendanceStatus) => {
-    MockService.updateAttendanceStatus(id, newStatus, 'Manually adjusted by HR Admin');
-    loadData();
-    setToastMessage(`Updated attendance record to ${newStatus}`);
+  const handleStatusChange = async (id: string, newStatus: AttendanceStatus) => {
+    try {
+      await ApiClient.updateAttendanceStatus(id, newStatus, 'Manually adjusted by HR Admin');
+      await loadData();
+      setToastMessage(`Updated attendance record to ${newStatus}`);
+    } catch (err) {
+      console.error('Failed to update attendance status:', err);
+    }
     setTimeout(() => setToastMessage(''), 3000);
   };
 
   const handleExportCsv = () => {
-    // Generate CSV string from filtered attendance
     const headers = ['ID', 'Employee', 'Department', 'Date', 'Status', 'CheckIn', 'CheckOut', 'Hours', 'Notes'];
-    const rows = filteredRecords.map((r) => [
-      r.id,
+    const rows = filteredRecords.map((r: any) => [
+      r._id || r.id,
       r.employeeName,
       r.department,
       r.date,
@@ -72,8 +77,8 @@ export default function HrAttendancePage() {
   const filteredRecords = attendance.filter((rec) => {
     const matchesDate = !selectedDate || rec.date === selectedDate;
     const matchesSearch =
-      rec.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      rec.department.toLowerCase().includes(searchQuery.toLowerCase());
+      (rec.employeeName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (rec.department || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'All' || rec.status === statusFilter;
     const matchesDept = deptFilter === 'All' || rec.department === deptFilter;
     return matchesDate && matchesSearch && matchesStatus && matchesDept;
@@ -185,10 +190,10 @@ export default function HrAttendancePage() {
           >
             <option value="All">All Departments</option>
             <option value="Engineering">Engineering</option>
-            <option value="Product & Design">Product & Design</option>
+            <option value="Product &amp; Design">Product &amp; Design</option>
             <option value="People Operations">People Operations</option>
             <option value="Marketing">Marketing</option>
-            <option value="Finance & Legal">Finance & Legal</option>
+            <option value="Finance &amp; Legal">Finance &amp; Legal</option>
           </select>
         </div>
 
@@ -211,7 +216,7 @@ export default function HrAttendancePage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F7F8F5] border-b border-[#E6EBE5] text-[#7E8980] uppercase tracking-wider font-semibold">
               <tr>
-                <th className="py-3.5 px-6">Employee & Unit</th>
+                <th className="py-3.5 px-6">Employee &amp; Unit</th>
                 <th className="py-3.5 px-6">Date</th>
                 <th className="py-3.5 px-6">Check-In</th>
                 <th className="py-3.5 px-6">Check-Out</th>
@@ -221,15 +226,21 @@ export default function HrAttendancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6EBE5]">
-              {filteredRecords.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-xs text-[#7E8980]">
+                    Loading attendance records from database...
+                  </td>
+                </tr>
+              ) : filteredRecords.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-xs text-[#7E8980]">
                     No attendance records for the selected date and filters.
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
+                filteredRecords.map((rec: any) => (
+                  <tr key={rec._id || rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
                     <td className="py-4 px-6">
                       <p className="font-bold text-[#102820] text-sm">{rec.employeeName}</p>
                       <p className="text-[11px] text-[#7E8980]">{rec.department}</p>
@@ -275,7 +286,7 @@ export default function HrAttendancePage() {
                     <td className="py-4 px-6 text-right">
                       <select
                         value={rec.status}
-                        onChange={(e) => handleStatusChange(rec.id, e.target.value as AttendanceStatus)}
+                        onChange={(e) => handleStatusChange(rec._id || rec.id, e.target.value as AttendanceStatus)}
                         className="px-2 py-1 rounded-lg border border-[#E6EBE5] text-[11px] bg-white font-medium outline-none focus:border-[#173D32]"
                       >
                         <option value="Present">Present</option>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -10,14 +9,11 @@ import {
   BarChart3,
   UserPlus,
   ArrowUpRight,
-  CheckCircle2,
-  AlertCircle,
-  Clock3,
   ChevronRight,
   TrendingUp,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Employee, LeaveRequest, AttendanceRecord, Announcement, TrainingProgram } from '../../../lib/types';
 import AddEmployeeModal from '../../../components/modals/AddEmployeeModal';
 import CreateAnnouncementModal from '../../../components/modals/CreateAnnouncementModal';
@@ -28,23 +24,37 @@ export default function HrDashboardPage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [trainings, setTrainings] = useState<TrainingProgram[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
   const [isCreateAnnouncementOpen, setIsCreateAnnouncementOpen] = useState(false);
 
-  const loadData = () => {
-    setEmployees(MockService.getEmployees());
-    setLeaves(MockService.getLeaveRequests());
-    const today = new Date().toISOString().split('T')[0];
-    setAttendance(MockService.getAttendance(today));
-    setAnnouncements(MockService.getAnnouncements());
-    setTrainings(MockService.getTrainingPrograms());
+  const loadData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      const [empRes, leavesRes, attRes, ancRes, trainRes] = await Promise.all([
+        ApiClient.getEmployees().catch(() => ({ employees: [] })),
+        ApiClient.getLeaves().catch(() => ({ leaves: [] })),
+        ApiClient.getAttendance({ date: today }).catch(() => ({ attendance: [] })),
+        ApiClient.getAnnouncements().catch(() => ({ announcements: [] })),
+        ApiClient.getTrainingPrograms().catch(() => ({ programs: [] })),
+      ]);
+
+      setEmployees(empRes?.employees || empRes?.data || []);
+      setLeaves(leavesRes?.leaves || leavesRes?.data || []);
+      setAttendance(attRes?.attendance || attRes?.data || []);
+      setAnnouncements(ancRes?.announcements || ancRes?.data || []);
+      setTrainings(trainRes?.programs || trainRes?.data || []);
+    } catch (err) {
+      console.error('HR dashboard load error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
   const totalEmployees = employees.length;
@@ -56,7 +66,8 @@ export default function HrDashboardPage() {
   // Department counts
   const departmentCounts: Record<string, number> = {};
   employees.forEach((emp) => {
-    departmentCounts[emp.department] = (departmentCounts[emp.department] || 0) + 1;
+    const dept = emp.department || 'General';
+    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
   });
 
   return (
@@ -112,11 +123,11 @@ export default function HrDashboardPage() {
           <div className="flex items-baseline gap-2">
             <span className="font-serif-display text-3xl font-bold text-[#102820]">{totalEmployees}</span>
             <span className="text-xs text-[#34785B] font-semibold flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +2 this month
+              <TrendingUp className="w-3 h-3 mr-0.5" /> Live in DB
             </span>
           </div>
           <div className="mt-3 pt-3 border-t border-[#E6EBE5] text-[11px] text-[#7E8980] flex justify-between">
-            <span>Active across 5 units</span>
+            <span>Active team members</span>
             <Link to="/hr/employees" className="text-[#173D32] font-semibold hover:underline">
               Directory →
             </Link>
@@ -160,7 +171,7 @@ export default function HrDashboardPage() {
             </span>
           </div>
           <div className="mt-3 pt-3 border-t border-[#E6EBE5] text-[11px] text-[#7E8980] flex justify-between">
-            <span>Avg turnaround: 4h</span>
+            <span>Real-time requests</span>
             <Link to="/hr/leaves" className="text-[#173D32] font-semibold hover:underline">
               Review queue →
             </Link>
@@ -180,7 +191,7 @@ export default function HrDashboardPage() {
             <span className="text-xs text-[#7E8980]">Curricula open</span>
           </div>
           <div className="mt-3 pt-3 border-t border-[#E6EBE5] text-[11px] text-[#7E8980] flex justify-between">
-            <span>Avg progress: 68%</span>
+            <span>Skills programs</span>
             <Link to="/hr/training" className="text-[#173D32] font-semibold hover:underline">
               Curricula →
             </Link>
@@ -207,48 +218,58 @@ export default function HrDashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {leaves.slice(0, 4).map((req) => (
-              <div
-                key={req.id}
-                className="p-3.5 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={req.employeeAvatar}
-                    alt={req.employeeName}
-                    className="w-10 h-10 rounded-xl object-cover border border-[#E6EBE5] shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#102820] truncate">{req.employeeName}</p>
-                    <p className="text-[11px] text-[#7E8980]">
-                      {req.department} • <span className="font-medium text-[#173D32]">{req.leaveType}</span> ({req.days} days)
-                    </p>
+            {leaves.length === 0 ? (
+              <p className="text-xs text-[#7E8980] py-6 text-center">No leave applications currently submitted.</p>
+            ) : (
+              leaves.slice(0, 4).map((req) => (
+                <div
+                  key={(req as any)._id || req.id}
+                  className="p-3.5 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {req.employeeAvatar ? (
+                      <img
+                        src={req.employeeAvatar}
+                        alt={req.employeeName}
+                        className="w-10 h-10 rounded-xl object-cover border border-[#E6EBE5] shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-xs shrink-0">
+                        {req.employeeName?.slice(0, 2).toUpperCase() || 'EM'}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#102820] truncate">{req.employeeName}</p>
+                      <p className="text-[11px] text-[#7E8980]">
+                        {req.department} • <span className="font-medium text-[#173D32]">{req.leaveType}</span> ({req.days} days)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span
+                      className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider ${
+                        req.status === 'Approved'
+                          ? 'bg-[#34785B]/15 text-[#34785B]'
+                          : req.status === 'Rejected'
+                          ? 'bg-[#C24141]/15 text-[#C24141]'
+                          : 'bg-[#B7791F]/15 text-[#B7791F]'
+                      }`}
+                    >
+                      {req.status}
+                    </span>
+
+                    <Link
+                      to="/hr/leaves"
+                      className="p-1.5 rounded-lg border border-[#E6EBE5] bg-white hover:bg-[#EAE9DF] text-[#173D32] transition-colors"
+                      title="Open Review Desk"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span
-                    className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider ${
-                      req.status === 'Approved'
-                        ? 'bg-[#34785B]/15 text-[#34785B]'
-                        : req.status === 'Rejected'
-                        ? 'bg-[#C24141]/15 text-[#C24141]'
-                        : 'bg-[#B7791F]/15 text-[#B7791F]'
-                    }`}
-                  >
-                    {req.status}
-                  </span>
-
-                  <Link
-                    to="/hr/leaves"
-                    className="p-1.5 rounded-lg border border-[#E6EBE5] bg-white hover:bg-[#EAE9DF] text-[#173D32] transition-colors"
-                    title="Open Review Desk"
-                  >
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -261,25 +282,29 @@ export default function HrDashboardPage() {
             </div>
 
             <div className="space-y-3.5">
-              {Object.entries(departmentCounts).map(([dept, count]) => {
-                const percentage = totalEmployees > 0 ? Math.round((count / totalEmployees) * 100) : 0;
-                return (
-                  <div key={dept}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-semibold text-[#102820]">{dept}</span>
-                      <span className="text-[#7E8980]">
-                        {count} ({percentage}%)
-                      </span>
+              {Object.keys(departmentCounts).length === 0 ? (
+                <p className="text-xs text-[#7E8980] py-4 text-center">No employee records found.</p>
+              ) : (
+                Object.entries(departmentCounts).map(([dept, count]) => {
+                  const percentage = totalEmployees > 0 ? Math.round((count / totalEmployees) * 100) : 0;
+                  return (
+                    <div key={dept}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-semibold text-[#102820]">{dept}</span>
+                        <span className="text-[#7E8980]">
+                          {count} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#F7F8F5] rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#173D32] h-full rounded-full transition-all duration-500"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-[#F7F8F5] rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-[#173D32] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -309,36 +334,40 @@ export default function HrDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {announcements.slice(0, 3).map((anc) => (
-            <div
-              key={anc.id}
-              className="p-4 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span
-                    className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                      anc.priority === 'High'
-                        ? 'bg-[#C24141]/15 text-[#C24141]'
-                        : anc.priority === 'Medium'
-                        ? 'bg-[#B7791F]/15 text-[#B7791F]'
-                        : 'bg-[#173D32]/10 text-[#173D32]'
-                    }`}
-                  >
-                    {anc.priority} Priority
-                  </span>
-                  <span className="text-[10px] text-[#7E8980]">{anc.publishedAt}</span>
+          {announcements.length === 0 ? (
+            <p className="text-xs text-[#7E8980] col-span-3 py-6 text-center">No announcements posted yet.</p>
+          ) : (
+            announcements.slice(0, 3).map((anc) => (
+              <div
+                key={(anc as any)._id || anc.id}
+                className="p-4 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                        anc.priority === 'High'
+                          ? 'bg-[#C24141]/15 text-[#C24141]'
+                          : anc.priority === 'Medium'
+                          ? 'bg-[#B7791F]/15 text-[#B7791F]'
+                          : 'bg-[#173D32]/10 text-[#173D32]'
+                      }`}
+                    >
+                      {anc.priority} Priority
+                    </span>
+                    <span className="text-[10px] text-[#7E8980]">{anc.publishedAt}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-[#102820] mb-1 line-clamp-1">{anc.title}</h4>
+                  <p className="text-[11px] text-[#34443A] leading-relaxed line-clamp-3 mb-3">
+                    {anc.content}
+                  </p>
                 </div>
-                <h4 className="text-xs font-bold text-[#102820] mb-1 line-clamp-1">{anc.title}</h4>
-                <p className="text-[11px] text-[#34443A] leading-relaxed line-clamp-3 mb-3">
-                  {anc.content}
-                </p>
+                <div className="pt-2 border-t border-[#E6EBE5] text-[10px] text-[#7E8980]">
+                  By {anc.authorName} ({anc.authorRole})
+                </div>
               </div>
-              <div className="pt-2 border-t border-[#E6EBE5] text-[10px] text-[#7E8980]">
-                By {anc.authorName} ({anc.authorRole})
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

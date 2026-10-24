@@ -1,27 +1,35 @@
-
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, CheckCircle2, Clock3 } from 'lucide-react';
+import { Clock, Calendar } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { AttendanceRecord } from '../../../lib/types';
 
 export default function ManagerAttendancePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [selectedDate, setSelectedDate] = useState('2026-10-23');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const todayAll = MockService.getAttendance(selectedDate);
-    const teamAtt = todayAll.filter(
-      (a) => a.department === 'Engineering' || a.department === 'Product & Design'
-    );
-    setAttendance(teamAtt);
+    async function fetchAttendance() {
+      try {
+        setLoading(true);
+        const res = await ApiClient.getAttendance(selectedDate ? { date: selectedDate } : {});
+        const records = res?.attendance || res?.data || [];
+        setAttendance(Array.isArray(records) ? records : []);
+      } catch (err) {
+        console.error('Failed to load attendance:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchAttendance();
   }, [selectedDate]);
 
   return (
     <DashboardLayout activeRole="manager" pageTitle="Team Attendance Telemetry">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif-display text-2xl text-[#102820]">Engineering & Design Presence</h2>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Engineering &amp; Design Presence</h2>
           <p className="text-xs text-[#7E8980]">
             Monitor daily check-ins, remote hours, and shift consistency
           </p>
@@ -51,24 +59,30 @@ export default function ManagerAttendancePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E6EBE5]">
-            {attendance.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
+                  Loading attendance records...
+                </td>
+              </tr>
+            ) : attendance.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
                   No team attendance logged for this date.
                 </td>
               </tr>
             ) : (
-              attendance.map((rec) => (
-                <tr key={rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
+              attendance.map((rec: any) => (
+                <tr key={rec._id || rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
                   <td className="py-4 px-6 font-bold text-[#102820] text-sm">{rec.employeeName}</td>
                   <td className="py-4 px-6 text-[#7E8980]">{rec.department}</td>
-                  <td className="py-4 px-6 font-mono font-semibold text-[#102820]">
+                  <td className="py-4 px-6 font-mono text-xs font-semibold text-[#102820]">
                     {rec.checkInTime || '—'}
                   </td>
-                  <td className="py-4 px-6 font-mono font-semibold text-[#102820]">
+                  <td className="py-4 px-6 font-mono text-xs font-semibold text-[#102820]">
                     {rec.checkOutTime || '—'}
                   </td>
-                  <td className="py-4 px-6 text-[#102820]">
+                  <td className="py-4 px-6 text-[#102820] font-semibold">
                     {rec.totalHours ? `${rec.totalHours} hrs` : 'In progress'}
                   </td>
                   <td className="py-4 px-6 text-right">
@@ -78,7 +92,9 @@ export default function ManagerAttendancePage() {
                           ? 'bg-[#34785B]/15 text-[#34785B]'
                           : rec.status === 'Late'
                           ? 'bg-[#B7791F]/15 text-[#B7791F]'
-                          : 'bg-[#173D32]/10 text-[#173D32]'
+                          : rec.status === 'On Leave'
+                          ? 'bg-[#173D32]/10 text-[#173D32]'
+                          : 'bg-[#C24141]/15 text-[#C24141]'
                       }`}
                     >
                       {rec.status}

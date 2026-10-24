@@ -14,9 +14,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
-import { INITIAL_DEMO_USERS } from '../../lib/mockData';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -44,38 +42,14 @@ export default function LoginPage() {
       const res = await ApiClient.login({ email: email.trim(), password });
       setIsLoading(false);
 
-      if (res && res.success) {
-        const loggedInUser = res.user;
-        const userRole = (loggedInUser?.role || 'employee').toLowerCase();
-        MockService.setCurrentUser(loggedInUser);
-        if (userRole === 'hr') navigate('/hr/dashboard');
-        else if (userRole === 'manager') navigate('/manager/dashboard');
-        else navigate('/employee/dashboard');
-      } else {
-        setErrorMessage(res?.message || 'Invalid email or password.');
-      }
-    } catch {
-      setIsLoading(false);
-      // Fallback user object
-      const lower = email.toLowerCase().trim();
-      const matchedRole = lower.includes('hr') || lower.includes('admin')
-        ? 'hr'
-        : lower.includes('manager') || lower.includes('lead')
-        ? 'manager'
-        : 'employee';
-      const fallbackObj = {
-        id: 'usr-' + Date.now(),
-        employeeId: 'STF-' + Math.floor(1000 + Math.random() * 9000),
-        name: email.split('@')[0].replace(/[._]/g, ' '),
-        email: lower,
-        role: matchedRole,
-        department: matchedRole === 'hr' ? 'People Operations' : matchedRole === 'manager' ? 'Engineering' : 'General',
-        designation: matchedRole === 'hr' ? 'HR Administrator' : matchedRole === 'manager' ? 'Team Lead' : 'Staff Member',
-      };
-      MockService.setCurrentUser(fallbackObj);
-      if (matchedRole === 'hr') navigate('/hr/dashboard');
-      else if (matchedRole === 'manager') navigate('/manager/dashboard');
+      const loggedInUser = res?.user;
+      const userRole = (loggedInUser?.role || res?.role || 'employee').toLowerCase();
+      if (userRole === 'hr') navigate('/hr/dashboard');
+      else if (userRole === 'manager') navigate('/manager/dashboard');
       else navigate('/employee/dashboard');
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err?.data?.message || err?.message || 'Invalid email or password. Please try again.');
     }
   };
 

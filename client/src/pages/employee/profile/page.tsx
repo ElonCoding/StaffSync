@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   User,
@@ -12,62 +11,77 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { Employee } from '../../../lib/types';
 
 export default function EmployeeProfilePage() {
-  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [employee, setEmployee] = useState<any>(null);
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('Alex Rostova (+1 555-987-6543)');
   const [savedNotice, setSavedNotice] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cur = MockService.getCurrentUser();
-    let emp = MockService.getEmployeeById(cur.id) || MockService.getEmployeeById(cur.employeeId);
-    if (!emp) {
-      emp = {
-        id: cur.id,
-        employeeId: cur.employeeId || 'STF-1008',
-        name: cur.name,
-        email: cur.email,
-        phone: cur.phone || '+1 (555) 010-2030',
-        role: cur.role,
-        department: cur.department,
-        designation: cur.designation,
-        joiningDate: new Date().toISOString().split('T')[0],
-        status: 'Active',
-        managerName: 'Direct Leadership',
-        location: cur.location || 'Remote, Global',
-        avatar: cur.avatar,
-        leaveBalances: { annual: 16, sick: 10, casual: 5, totalRemaining: 31 },
-      };
+    async function fetchProfile() {
+      try {
+        const meRes = await ApiClient.getMe();
+        const user = meRes?.user || meRes;
+        setEmployee(user);
+        setPhone(user.phone || '');
+        setLocation(user.location || '');
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-    setEmployee(emp);
-    setPhone(emp.phone || '');
-    setLocation(emp.location || '');
+    fetchProfile();
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employee) return;
 
-    MockService.updateEmployee(employee.id, {
-      phone,
-      location,
-    });
+    try {
+      const targetId = employee._id || employee.id;
+      await ApiClient.updateEmployee(targetId, {
+        phone,
+        location,
+      });
 
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+      setSavedNotice(true);
+      setTimeout(() => setSavedNotice(false), 3000);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+    }
   };
 
-  if (!employee) return null;
+  if (loading) {
+    return (
+      <DashboardLayout activeRole="employee" pageTitle="My Personal Dossier">
+        <div className="flex items-center justify-center h-64 text-[#7E8980] text-xs">
+          Loading your profile...
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!employee) {
+    return (
+      <DashboardLayout activeRole="employee" pageTitle="My Personal Dossier">
+        <div className="text-center py-12 text-xs text-[#7E8980]">
+          Profile not found. Please log in again.
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout activeRole="employee" pageTitle="My Personal Dossier">
       <div className="max-w-3xl">
         <div className="mb-6">
-          <h2 className="font-serif-display text-2xl text-[#102820]">Personal Profile & Information</h2>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Personal Profile &amp; Information</h2>
           <p className="text-xs text-[#7E8980]">
             Update your verified contact channels and review your organizational credentials
           </p>
@@ -83,31 +97,37 @@ export default function EmployeeProfilePage() {
         {/* Profile Card Header */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E6EBE5] shadow-xs mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-6 border-b border-[#E6EBE5]">
-            <img
-              src={employee.avatar}
-              alt={employee.name}
-              className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
-            />
+            {employee.avatar ? (
+              <img
+                src={employee.avatar}
+                alt={employee.name}
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-2xl shadow-md">
+                {employee.name?.slice(0, 2).toUpperCase() || 'EM'}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-serif-display text-2xl text-[#102820]">{employee.name}</h3>
                 <span className="text-[10px] bg-[#34785B]/15 text-[#34785B] font-bold px-2 py-0.5 rounded uppercase">
-                  {employee.status}
+                  {employee.status || 'Active'}
                 </span>
               </div>
-              <p className="text-xs text-[#7E8980] mt-0.5">{employee.designation}</p>
+              <p className="text-xs text-[#7E8980] mt-0.5">{employee.designation || 'Staff Member'}</p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-[#34443A] mt-2">
                 <span className="font-mono bg-[#173D32]/10 text-[#173D32] px-2 py-0.5 rounded font-semibold text-[11px]">
-                  {employee.employeeId}
+                  {employee.employeeId || employee._id || employee.id}
                 </span>
-                <span>{employee.department}</span>
+                <span>{employee.department || 'General'}</span>
                 <span>•</span>
-                <span>Lead: {employee.managerName}</span>
+                <span>Lead: {employee.managerName || 'Direct Leadership'}</span>
               </div>
             </div>
           </div>
 
-          {/* View-Only Privileged Fields Box (Section 10.1 requirement) */}
+          {/* View-Only Privileged Fields Box */}
           <div className="mt-6 p-4 rounded-2xl bg-[#F7F8F5] border border-[#E6EBE5]">
             <div className="flex items-center gap-1.5 text-xs text-[#7E8980] font-semibold mb-3">
               <Lock className="w-3.5 h-3.5 text-[#B7791F]" />
@@ -120,7 +140,7 @@ export default function EmployeeProfilePage() {
               </div>
               <div>
                 <span className="text-[#7E8980] block text-[11px]">Employee ID</span>
-                <span className="font-mono font-semibold text-[#102820]">{employee.employeeId}</span>
+                <span className="font-mono font-semibold text-[#102820]">{employee.employeeId || '—'}</span>
               </div>
               <div>
                 <span className="text-[#7E8980] block text-[11px]">Department</span>
@@ -128,7 +148,7 @@ export default function EmployeeProfilePage() {
               </div>
               <div>
                 <span className="text-[#7E8980] block text-[11px]">Joining Date</span>
-                <span className="font-semibold text-[#102820]">{employee.joiningDate}</span>
+                <span className="font-semibold text-[#102820]">{employee.joiningDate || '2026-01-01'}</span>
               </div>
             </div>
           </div>
@@ -147,7 +167,7 @@ export default function EmployeeProfilePage() {
               </label>
               <input
                 type="email"
-                value={employee.email}
+                value={employee.email || ''}
                 disabled
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] bg-[#F7F8F5] text-[#7E8980] cursor-not-allowed"
               />
@@ -159,7 +179,6 @@ export default function EmployeeProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] outline-none focus:border-[#173D32]"
-                required
               />
             </div>
           </div>
@@ -172,7 +191,6 @@ export default function EmployeeProfilePage() {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-[#E6EBE5] outline-none focus:border-[#173D32]"
-                required
               />
             </div>
             <div>

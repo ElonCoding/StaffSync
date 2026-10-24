@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { X, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { LeaveType, LeaveRequest } from '../../lib/types';
-import { MockService } from '../../lib/mockService';
 import { ApiClient } from '../../services/apiClient.js';
 import { getInitialsAvatar } from '../../lib/avatar.jsx';
 
@@ -12,6 +11,7 @@ interface ApplyLeaveModalProps {
   onSuccess: (newLeave: LeaveRequest) => void;
   employeeId?: string;
   employeeName?: string;
+  employeeDepartment?: string;
 }
 
 export default function ApplyLeaveModal({
@@ -20,21 +20,21 @@ export default function ApplyLeaveModal({
   onSuccess,
   employeeId,
   employeeName,
+  employeeDepartment,
 }: ApplyLeaveModalProps) {
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]);
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const currentUser = MockService.getCurrentUser() || {};
-  const effectiveEmpId = employeeId || currentUser.employeeId || currentUser.id || 'STF-1008';
-  const effectiveEmpName = employeeName || currentUser.name || 'Staff Member';
-  const effectiveDept = currentUser.department || 'General';
+  const effectiveEmpId = employeeId || '';
+  const effectiveEmpName = employeeName || 'Staff Member';
+  const effectiveDept = employeeDepartment || 'General';
 
-  // Calculate day difference
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.max(0, end.getTime() - start.getTime());
@@ -43,12 +43,13 @@ export default function ApplyLeaveModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) return;
-
+    setError('');
     setIsSubmitting(true);
+
     const payload = {
       employeeId: effectiveEmpId,
       employeeName: effectiveEmpName,
-      employeeAvatar: currentUser.avatar || getInitialsAvatar(effectiveEmpName, '#173D32', '#C7F36B'),
+      employeeAvatar: getInitialsAvatar(effectiveEmpName, '#173D32', '#C7F36B'),
       department: effectiveDept,
       leaveType,
       startDate,
@@ -58,15 +59,15 @@ export default function ApplyLeaveModal({
     };
 
     try {
-      await ApiClient.applyLeave(payload);
-    } catch (err) {
-      console.warn('API leave application fallback:', err);
+      const res = await ApiClient.applyLeave(payload);
+      const newLeave = res?.leave || res?.data || res;
+      setIsSubmitting(false);
+      onSuccess(newLeave);
+      onClose();
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setError(err?.data?.message || err?.message || 'Failed to submit leave request.');
     }
-
-    const newReq = MockService.applyLeave(payload as any);
-    setIsSubmitting(false);
-    onSuccess(newReq);
-    onClose();
   };
 
   return (
@@ -137,7 +138,7 @@ export default function ApplyLeaveModal({
 
           <div>
             <label className="block text-xs font-semibold text-[#102820] mb-1">
-              Purpose & Context
+              Purpose &amp; Context
             </label>
             <textarea
               rows={3}
@@ -149,6 +150,12 @@ export default function ApplyLeaveModal({
             />
           </div>
 
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E6EBE5]">
             <button
               type="button"
@@ -159,10 +166,11 @@ export default function ApplyLeaveModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-xl bg-[#173D32] text-[#EAE9DF] text-xs font-semibold hover:bg-[#102820] shadow-sm flex items-center gap-1.5 disabled:opacity-60"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#C7F36B]" />
-              <span>Submit Request</span>
+              <span>{isSubmitting ? 'Submitting…' : 'Submit Request'}</span>
             </button>
           </div>
         </form>

@@ -1,88 +1,83 @@
-
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, CheckCircle2, Clock3 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
 import { ApiClient } from '../../../services/apiClient.js';
 import { AttendanceRecord } from '../../../lib/types';
 
 export default function EmployeeAttendancePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
-    const cur = MockService.getCurrentUser();
-    let all: any[] = [];
     try {
+      const meRes = await ApiClient.getMe();
+      const cur = meRes?.user || meRes;
+      setCurrentUser(cur);
+
+      const userId = cur._id || cur.id;
+      const empId = cur.employeeId;
+
       const res = await ApiClient.getAttendance();
-      const serverAtt = res.data || res.attendance;
-      if (Array.isArray(serverAtt) && serverAtt.length > 0) {
-        all = serverAtt;
+      const all: any[] = res?.attendance || res?.data || [];
+
+      const myRecords = all.filter(
+        (a) => a.employeeId === userId || a.employeeId === empId || a.employeeName === cur.name
+      );
+      setAttendance(myRecords);
+
+      const today = new Date().toISOString().split('T')[0];
+      const todayRec = myRecords.find((a) => a.date === today);
+      if (todayRec && todayRec.checkInTime && !todayRec.checkOutTime) {
+        setIsClockedIn(true);
       } else {
-        all = MockService.getAttendance();
+        setIsClockedIn(false);
       }
-    } catch {
-      all = MockService.getAttendance();
-    }
-
-    const myRecords = all.filter(
-      (a) => a.employeeId === cur.id || a.employeeId === cur.employeeId || a.employeeName === cur.name
-    );
-    setAttendance(myRecords);
-
-    const today = new Date().toISOString().split('T')[0];
-    const todayRec = myRecords.find((a) => a.date === today);
-    if (todayRec && todayRec.checkInTime && !todayRec.checkOutTime) {
-      setIsClockedIn(true);
-    } else {
-      setIsClockedIn(false);
+    } catch (err) {
+      console.error('Failed to load attendance:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
   const handleToggleClock = async () => {
-    const cur = MockService.getCurrentUser();
-    const empId = cur.employeeId || cur.id || 'STF-1008';
-    if (!isClockedIn) {
-      try {
+    if (!currentUser) return;
+    const empId = currentUser._id || currentUser.id || currentUser.employeeId;
+
+    try {
+      if (!isClockedIn) {
         await ApiClient.clockIn({
           employeeId: empId,
-          employeeName: cur.name,
-          department: cur.department,
+          employeeName: currentUser.name,
+          department: currentUser.department || 'General',
         });
-      } catch (err) {
-        console.warn('Clock in fallback:', err);
-      }
-      MockService.clockIn(empId, cur.name, cur.department);
-      setIsClockedIn(true);
-      setFeedbackMsg('Clocked in for today. Have a wonderful workday!');
-    } else {
-      try {
+        setIsClockedIn(true);
+        setFeedbackMsg('Clocked in for today. Have a productive workday!');
+      } else {
         await ApiClient.clockOut({
           employeeId: empId,
         });
-      } catch (err) {
-        console.warn('Clock out fallback:', err);
+        setIsClockedIn(false);
+        setFeedbackMsg('Clocked out successfully. Enjoy your evening!');
       }
-      MockService.clockOut(empId);
-      setIsClockedIn(false);
-      setFeedbackMsg('Clocked out. Enjoy your evening!');
+      await loadData();
+    } catch (err) {
+      console.error('Clock error:', err);
     }
     setTimeout(() => setFeedbackMsg(''), 3500);
-    loadData();
   };
 
   return (
     <DashboardLayout activeRole="employee" pageTitle="My Attendance & Shift Telemetry">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif-display text-2xl text-[#102820]">Attendance & Presence Log</h2>
+          <h2 className="font-serif-display text-2xl text-[#102820]">Attendance &amp; Presence Log</h2>
           <p className="text-xs text-[#7E8980]">
             Review your daily punctuality timestamps and cumulative shift hours
           </p>
@@ -123,15 +118,21 @@ export default function EmployeeAttendancePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E6EBE5]">
-            {attendance.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
+                  Loading your attendance records from database...
+                </td>
+              </tr>
+            ) : attendance.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
                   No attendance records found. Click &quot;Clock In for Today&quot; to log your shift.
                 </td>
               </tr>
             ) : (
-              attendance.map((rec) => (
-                <tr key={rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
+              attendance.map((rec: any) => (
+                <tr key={rec._id || rec.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
                   <td className="py-4 px-6 font-bold text-[#102820]">{rec.date}</td>
                   <td className="py-4 px-6 font-mono text-xs font-semibold text-[#102820]">
                     {rec.checkInTime || '—'}

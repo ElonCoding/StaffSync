@@ -13,7 +13,6 @@ import {
   Building,
 } from 'lucide-react';
 import { ApiClient } from '../../services/apiClient.js';
-import { MockService } from '../../lib/mockService';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -66,7 +65,6 @@ export default function SignupPage() {
           designation: `${role} Member`,
         };
         const userRole = (userObj.role || 'employee').toLowerCase();
-        MockService.setCurrentUser(userObj);
         setTimeout(() => {
           if (userRole === 'hr') navigate('/hr/dashboard');
           else if (userRole === 'manager') navigate('/manager/dashboard');
@@ -75,26 +73,9 @@ export default function SignupPage() {
       } else {
         setErrorMessage(res?.message || 'Registration failed. Email may already be registered.');
       }
-    } catch {
+    } catch (err: any) {
       setIsLoading(false);
-      // Seamless fallback
-      const userRole = role.toLowerCase();
-      const fallbackUser = {
-        id: 'usr-' + Date.now(),
-        employeeId: 'STF-' + Math.floor(1000 + Math.random() * 9000),
-        name,
-        email,
-        role: userRole,
-        department,
-        designation: `${role} Member`,
-      };
-      MockService.setCurrentUser(fallbackUser);
-      setSuccessMessage('Registration completed! Redirecting...');
-      setTimeout(() => {
-        if (userRole === 'hr') navigate('/hr/dashboard');
-        else if (userRole === 'manager') navigate('/manager/dashboard');
-        else navigate('/employee/dashboard');
-      }, 1000);
+      setErrorMessage(err?.data?.message || err?.message || 'Registration failed. Please try again.');
     }
   };
 

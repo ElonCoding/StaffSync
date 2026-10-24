@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   CalendarCheck,
@@ -10,7 +9,7 @@ import {
   Clock,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import { MockService } from '../../../lib/mockService';
+import { ApiClient } from '../../../services/apiClient.js';
 import { LeaveRequest } from '../../../lib/types';
 import LeaveDecisionModal from '../../../components/modals/LeaveDecisionModal';
 
@@ -19,25 +18,35 @@ export default function ManagerLeavesPage() {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('Pending');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [reviewerName, setReviewerName] = useState('Manager');
 
-  const loadData = () => {
-    const all = MockService.getLeaveRequests();
-    // Manager oversees Engineering and Product & Design
-    const teamLeaves = all.filter(
-      (l) => l.department === 'Engineering' || l.department === 'Product & Design'
-    );
-    setLeaves(teamLeaves);
+  const loadData = async () => {
+    try {
+      const meRes = await ApiClient.getMe().catch(() => null);
+      if (meRes?.user?.name) setReviewerName(meRes.user.name);
+
+      const res = await ApiClient.getLeaves();
+      const all: LeaveRequest[] = res?.leaves || res?.data || [];
+      setLeaves(all);
+    } catch (err) {
+      console.error('Failed to load leaves:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('staffsync_storage_update', loadData);
-    return () => window.removeEventListener('staffsync_storage_update', loadData);
   }, []);
 
-  const handleQuickApprove = (req: LeaveRequest) => {
-    MockService.reviewLeave(req.id, 'Approved', 'Marcus Vance (VP Engineering)');
-    loadData();
+  const handleQuickApprove = async (req: LeaveRequest) => {
+    try {
+      await ApiClient.updateLeaveStatus((req as any)._id || req.id, 'Approved');
+      await loadData();
+    } catch (err) {
+      console.error('Failed to approve leave:', err);
+    }
   };
 
   const filteredLeaves = leaves.filter((l) => statusFilter === 'All' || l.status === statusFilter);
@@ -85,7 +94,13 @@ export default function ManagerLeavesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E6EBE5]">
-              {filteredLeaves.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
+                    Loading leave requests...
+                  </td>
+                </tr>
+              ) : filteredLeaves.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-xs text-[#7E8980]">
                     No leave requests found in the {statusFilter.toLowerCase()} queue.
@@ -93,14 +108,20 @@ export default function ManagerLeavesPage() {
                 </tr>
               ) : (
                 filteredLeaves.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
+                  <tr key={(req as any)._id || req.id} className="hover:bg-[#F7F8F5]/60 transition-colors">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={req.employeeAvatar}
-                          alt={req.employeeName}
-                          className="w-9 h-9 rounded-xl object-cover border border-[#E6EBE5]"
-                        />
+                        {req.employeeAvatar ? (
+                          <img
+                            src={req.employeeAvatar}
+                            alt={req.employeeName}
+                            className="w-9 h-9 rounded-xl object-cover border border-[#E6EBE5]"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-[#173D32] text-[#C7F36B] flex items-center justify-center font-bold text-xs">
+                            {req.employeeName?.slice(0, 2).toUpperCase() || 'EM'}
+                          </div>
+                        )}
                         <div>
                           <p className="font-bold text-[#102820] text-sm">{req.employeeName}</p>
                           <p className="text-[11px] text-[#7E8980]">{req.department}</p>
@@ -186,7 +207,7 @@ export default function ManagerLeavesPage() {
           setSelectedRequest(null);
         }}
         onDecision={() => loadData()}
-        reviewerName="Marcus Vance (VP Engineering)"
+        reviewerName={reviewerName}
       />
     </DashboardLayout>
   );
